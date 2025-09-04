@@ -11,7 +11,6 @@ from .schemas import MatchRequestSingle, MatchScore, HRMatchRequest, HRMatchResp
 from .text_extract import sniff_and_extract_text
 from .tika_client import extract_text_via_tika
 from .scoring import compute_similarity_score
-from .embedding_service import embedding_service
 from .models import LLMConfig
 
 
@@ -22,10 +21,22 @@ router = APIRouter(prefix="/match", tags=["match"])
 def match_single(
     payload: MatchRequestSingle,
     user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     if not payload.cv_text or not payload.jd_text:
         raise HTTPException(status_code=400, detail="cv_text and jd_text are required")
-    score = compute_similarity_score(payload.cv_text, payload.jd_text)
+    # Use user's LLM config so the agent has a valid key
+    llm_config = db.query(LLMConfig).filter(LLMConfig.user_id == user.id).first()
+    if llm_config and llm_config.llm_api_key:
+        score = compute_similarity_score(
+            payload.cv_text,
+            payload.jd_text,
+            llm_provider=str(llm_config.llm_provider.value if hasattr(llm_config.llm_provider, 'value') else llm_config.llm_provider),
+            llm_model_name=llm_config.llm_model_name,
+            api_key=llm_config.llm_api_key,
+        )
+    else:
+        score = compute_similarity_score(payload.cv_text, payload.jd_text)
     return MatchScore(score=score)
 
 
@@ -75,41 +86,24 @@ def match_hr(
     cvs = db.query(CV).filter(CV.id.in_(payload.cv_ids), CV.owner_id == user.id).all()
     id_to_cv = {cv.id: cv for cv in cvs}
     
-    # Get user's embedding configuration
+    # Pull LLM config for this user to set model card and API key
     llm_config = db.query(LLMConfig).filter(LLMConfig.user_id == user.id).first()
-    use_embeddings = llm_config and llm_config.embedding_provider
-    
     results = []
-    jd_embedding = None
-    
-    # Generate JD embedding if using embedding-based matching
-    if use_embeddings:
-        try:
-            jd_embedding = embedding_service.embed_text(
-                payload.jd_text,
-                llm_config.embedding_provider,
-                llm_config.embedding_api_key,
-                llm_config.embedding_model_name
-            )
-        except Exception as e:
-            print(f"Failed to generate JD embedding, falling back to TF-IDF: {e}")
-            use_embeddings = False
     
     for cv_id in payload.cv_ids:
         cv = id_to_cv.get(cv_id)
         if not cv:
             continue
-        
-        if use_embeddings and cv.embedding_vector and jd_embedding:
-            # Use embedding-based similarity
-            try:
-                cv_embedding = json.loads(cv.embedding_vector)
-                score = embedding_service.cosine_similarity(jd_embedding, cv_embedding)
-            except Exception:
-                # Fall back to TF-IDF if embedding fails
-                score = compute_similarity_score(cv.content_text or "", payload.jd_text)
+        # Use agent-based structured scoring, configured by user's LLM settings if available
+        if llm_config and llm_config.llm_api_key:
+            score = compute_similarity_score(
+                cv.content_text or "",
+                payload.jd_text,
+                llm_provider=str(llm_config.llm_provider.value if hasattr(llm_config.llm_provider, 'value') else llm_config.llm_provider),
+                llm_model_name=llm_config.llm_model_name,
+                api_key=llm_config.llm_api_key,
+            )
         else:
-            # Use traditional TF-IDF similarity
             score = compute_similarity_score(cv.content_text or "", payload.jd_text)
         
         results.append(HRMatchItem(cv_id=cv.id, filename=cv.filename, score=score))

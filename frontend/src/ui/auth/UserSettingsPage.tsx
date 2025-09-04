@@ -42,9 +42,6 @@ interface LLMConfig {
   llm_temperature: number;
   llm_top_p: number;
   llm_max_tokens: number;
-  embedding_provider: 'local' | 'openai' | 'gemini';
-  embedding_api_key?: string;
-  embedding_model_name: string;
 }
 
 export const UserSettingsPage: React.FC = () => {
@@ -367,17 +364,6 @@ export const UserSettingsPage: React.FC = () => {
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       Max Tokens: {llmConfig.llm_max_tokens}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="subtitle2" color="primary" gutterBottom>
-                      Embedding Settings
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Provider: {llmConfig.embedding_provider}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Model: {llmConfig.embedding_model_name}
                     </Typography>
                   </Grid>
                 </Grid>

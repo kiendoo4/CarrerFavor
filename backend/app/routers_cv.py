@@ -20,7 +20,7 @@ from .config import settings
 from .text_extract import sniff_and_extract_text
 from .tika_client import extract_text_via_tika
 
-from .embedding_service import embedding_service
+
 
 
 router = APIRouter(prefix="/cv", tags=["cv"])

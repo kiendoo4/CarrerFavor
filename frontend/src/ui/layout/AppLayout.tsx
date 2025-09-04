@@ -131,15 +131,17 @@ export const AppLayout: React.FC = () => {
               >
                 Candidate
               </Button>
-              <Button
-                variant={window.location.pathname === '/matching' ? 'contained' : 'outlined'}
-                size="small"
-                startIcon={<Business />}
-                onClick={() => navigate('/matching')}
-                sx={{ minWidth: 'auto' }}
-              >
-                Matching
-              </Button>
+              {user?.role === 'hr' && (
+                <Button
+                  variant={window.location.pathname === '/matching' ? 'contained' : 'outlined'}
+                  size="small"
+                  startIcon={<Business />}
+                  onClick={() => navigate('/matching')}
+                  sx={{ minWidth: 'auto' }}
+                >
+                  Matching
+                </Button>
+              )}
               {user?.role === 'hr' && (
                 <Button
                   variant={window.location.pathname === '/cv-management' ? 'contained' : 'outlined'}
@@ -225,13 +227,6 @@ export const AppLayout: React.FC = () => {
                   </Typography>
                 </Box>
                 <Divider />
-                <MenuItem 
-                  onClick={() => { handleClose(); navigateToRole(); }}
-                  sx={{ py: 1.5, px: 3 }}
-                >
-                  <Dashboard sx={{ mr: 2, fontSize: 20, color: 'primary.main' }} />
-                  Dashboard
-                </MenuItem>
                 <MenuItem 
                   onClick={() => { handleClose(); navigate('/settings'); }}
                   sx={{ py: 1.5, px: 3 }}

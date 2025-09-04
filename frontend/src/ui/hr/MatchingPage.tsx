@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -31,7 +32,9 @@ import {
   TextField,
   Tabs,
   Tab,
-  Stack
+  Stack,
+  LinearProgress,
+  Avatar
 } from '@mui/material';
 import {
   Info as InfoIcon,
@@ -64,8 +67,18 @@ interface Collection {
   cvs: CV[];
 }
 
+interface MatchItem {
+  cv_id: number;
+  filename: string;
+  score: number;
+}
+
+interface MatchResponse {
+  results: MatchItem[];
+}
+
 const MatchingPage: React.FC = () => {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const theme = useTheme();
   const [collections, setCollections] = useState<Collection[]>([]);
   const [selectedCollections, setSelectedCollections] = useState<Set<number>>(new Set());
@@ -77,6 +90,7 @@ const MatchingPage: React.FC = () => {
   const [jdTab, setJdTab] = useState(0);
   const [jdFile, setJdFile] = useState<File | null>(null);
   const [jdUploading, setJdUploading] = useState(false);
+  const [matchResults, setMatchResults] = useState<MatchItem[] | null>(null);
 
   useEffect(() => {
     fetchCollections();
@@ -227,7 +241,7 @@ const MatchingPage: React.FC = () => {
 
     try {
       const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-      const response = await fetch(`${API_BASE}/matching/start`, {
+      const response = await fetch(`${API_BASE}/match/hr`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -235,15 +249,17 @@ const MatchingPage: React.FC = () => {
         },
         body: JSON.stringify({
           cv_ids: Array.from(selectedCVs),
-          job_description: jdText.trim()
+          jd_text: jdText.trim()
         })
       });
 
       if (!response.ok) {
-        throw new Error('Failed to start matching process');
+        const errText = await response.text();
+        throw new Error(errText || 'Failed to start matching process');
       }
 
-      alert('Matching process started successfully!');
+      const data: MatchResponse = await response.json();
+      setMatchResults((data?.results || []).sort((a, b) => b.score - a.score));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start matching');
     } finally {
@@ -269,6 +285,10 @@ const MatchingPage: React.FC = () => {
     );
   }
 
+  if (user && user.role !== 'hr') {
+    return <Navigate to="/candidate" replace />
+  }
+
   return (
     <Box p={3}>
       <Typography variant="h4" gutterBottom>
@@ -287,7 +307,7 @@ const MatchingPage: React.FC = () => {
 
       <Grid container spacing={3}>
         {/* Job Description Section */}
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={6} order={{ xs: 2, md: 2 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -361,7 +381,7 @@ const MatchingPage: React.FC = () => {
         </Grid>
 
         {/* CV Collections Section */}
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={6} order={{ xs: 1, md: 1 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -500,6 +520,58 @@ const MatchingPage: React.FC = () => {
           </Card>
         </Grid>
       </Grid>
+
+      {/* Matching Results */}
+      {matchResults && (
+        <Box mt={3}>
+          <Card>
+            <CardContent>
+              <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+                <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <TrendingUpIcon color="success" />
+                  Matching Results
+                </Typography>
+                <Chip label={`${matchResults.length} result(s)`} size="small" color="success" variant="outlined" />
+              </Stack>
+
+              {matchResults.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">No results.</Typography>
+              ) : (
+                <List>
+                  {matchResults.map((item, idx) => {
+                    const percent = Math.max(0, Math.min(100, Math.round(item.score * 100)));
+                    const initials = (item.filename || 'CV').slice(0, 2).toUpperCase();
+                    return (
+                      <ListItem key={`${item.cv_id}-${idx}`} sx={{ borderBottom: '1px solid', borderColor: 'divider', py: 2 }}>
+                        <Stack direction="row" alignItems="center" spacing={2} sx={{ width: '100%' }}>
+                          <Chip label={`#${idx + 1}`} color={idx === 0 ? 'success' : 'default'} size="small" />
+                          <Avatar sx={{ bgcolor: idx === 0 ? 'success.main' : 'primary.main', width: 32, height: 32, fontSize: 14 }}>
+                            {initials}
+                          </Avatar>
+                          <Box sx={{ flexGrow: 1 }}>
+                            <Stack direction="row" alignItems="center" justifyContent="space-between">
+                              <Typography variant="body1" sx={{ fontWeight: idx === 0 ? 600 : 500, mr: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {item.filename}
+                              </Typography>
+                              <Chip label={`Score: ${item.score.toFixed(4)} (${percent}%)`} size="small" color={idx === 0 ? 'success' : 'default'} />
+                            </Stack>
+                            <LinearProgress variant="determinate" value={percent} sx={{ mt: 1, height: 8, borderRadius: 1 }} />
+                          </Box>
+                          {idx === 0 && (
+                            <Tooltip title="Top match">
+                              <CheckCircleIcon color="success" />
+                            </Tooltip>
+                          )}
+                        </Stack>
+                      </ListItem>
+                    );
+                  })}
+                </List>
+              )}
+            </CardContent>
+          </Card>
+        </Box>
+      )}
 
       <Box display="flex" justifyContent="space-between" alignItems="center" mt={3}>
         <Box>

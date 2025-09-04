@@ -6,7 +6,7 @@ import json
 
 from .deps import get_db, get_current_user
 from .models import LLMConfig, LLMProvider, CV, User
-from .schemas import LLMConfigIn, LLMConfigOut, CVParseResponse, CVParsedField
+from .schemas import LLMConfigIn, LLMConfigOut, CVParseResponse, CVParsedField, APIKeyValidateRequest, APIKeyValidateResponse
 
 
 router = APIRouter(prefix="/llm", tags=["llm"])
@@ -23,8 +23,6 @@ def get_config(db: Session = Depends(get_db), user: User = Depends(get_current_u
         llm_temperature=cfg.llm_temperature,
         llm_top_p=cfg.llm_top_p,
         llm_max_tokens=cfg.llm_max_tokens,
-        embedding_provider=cfg.embedding_provider,
-        embedding_model_name=cfg.embedding_model_name,
     )
 
 
@@ -40,9 +38,6 @@ def set_config(payload: LLMConfigIn, db: Session = Depends(get_db), user: User =
     cfg.llm_temperature = payload.llm_temperature
     cfg.llm_top_p = payload.llm_top_p
     cfg.llm_max_tokens = payload.llm_max_tokens
-    cfg.embedding_provider = payload.embedding_provider
-    cfg.embedding_api_key = payload.embedding_api_key
-    cfg.embedding_model_name = payload.embedding_model_name
     db.commit()
     return LLMConfigOut(
         llm_provider=cfg.llm_provider,
@@ -50,9 +45,36 @@ def set_config(payload: LLMConfigIn, db: Session = Depends(get_db), user: User =
         llm_temperature=cfg.llm_temperature,
         llm_top_p=cfg.llm_top_p,
         llm_max_tokens=cfg.llm_max_tokens,
-        embedding_provider=cfg.embedding_provider,
-        embedding_model_name=cfg.embedding_model_name,
     )
+
+
+@router.post("/validate-api-key", response_model=APIKeyValidateResponse)
+def validate_api_key(payload: APIKeyValidateRequest, user: User = Depends(get_current_user)):
+    try:
+        if payload.kind == "llm":
+            if payload.provider == "openai":
+                # Minimal validation: list models
+                url = os.getenv("OPENAI_MODELS_URL", "https://api.openai.com/v1/models")
+                headers = {"Authorization": f"Bearer {payload.api_key}"}
+                r = requests.get(url, headers=headers, timeout=20)
+                if r.status_code == 200:
+                    return APIKeyValidateResponse(valid=True, message="OpenAI key is valid")
+                return APIKeyValidateResponse(valid=False, message=f"OpenAI validation failed: {r.status_code}")
+            elif payload.provider == "gemini":
+                # Minimal validation: models list (v1)
+                url = f"https://generativelanguage.googleapis.com/v1/models?key={payload.api_key}"
+                r = requests.get(url, timeout=20)
+                if r.status_code == 200:
+                    return APIKeyValidateResponse(valid=True, message="Gemini key is valid")
+                return APIKeyValidateResponse(valid=False, message=f"Gemini validation failed: {r.status_code}")
+            else:
+                return APIKeyValidateResponse(valid=False, message="Unsupported LLM provider")
+        else:
+            return APIKeyValidateResponse(valid=False, message="Unsupported kind")
+    except requests.exceptions.RequestException as e:
+        return APIKeyValidateResponse(valid=False, message=f"Network error: {e}")
+    except Exception as e:
+        return APIKeyValidateResponse(valid=False, message=f"Validation error: {e}")
 
 
 @router.post("/parse/{cv_id}", response_model=CVParseResponse)

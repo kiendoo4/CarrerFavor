@@ -82,11 +82,14 @@ import {
 import axios from 'axios';
 import { LLMSettingsDialog } from './LLMSettingsDialog';
 import { useAuth } from '../auth/AuthContext';
+import * as docx from 'docx-preview';
 
 // File Viewer Component
 const FileViewer: React.FC<{ cv: CV; token: string | null }> = ({ cv, token }) => {
   const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
   const [fileError, setFileError] = React.useState<string | null>(null);
+  const viewerRef = React.useRef<HTMLDivElement | null>(null);
+  const [loadingDocx, setLoadingDocx] = React.useState(false);
   
   // For PDF files, try to use iframe
   if (cv.filename.toLowerCase().endsWith('.pdf')) {
@@ -130,6 +133,77 @@ const FileViewer: React.FC<{ cv: CV; token: string | null }> = ({ cv, token }) =
               </Box>
             </Box>
           )}
+        </Box>
+      </Box>
+    );
+  }
+
+  // For DOCX files, try client-side rendering via data URL endpoint
+  if (cv.filename.toLowerCase().endsWith('.docx')) {
+    React.useEffect(() => {
+      let cancelled = false;
+      const loadDocx = async () => {
+        setLoadingDocx(true);
+        try {
+          const res = await fetch(`${API}/cv/${cv.id}/view`);
+          if (!res.ok) throw new Error('Failed to fetch docx');
+          const data = await res.json();
+          const { data_url } = data;
+          const response = await fetch(data_url);
+          const arrayBuffer = await response.arrayBuffer();
+          if (!cancelled && viewerRef.current) {
+            viewerRef.current.innerHTML = '';
+            await docx.renderAsync(arrayBuffer, viewerRef.current);
+          }
+        } catch (err) {
+          if (!cancelled) setFileError('Unable to render DOCX preview');
+        } finally {
+          if (!cancelled) setLoadingDocx(false);
+        }
+      };
+      loadDocx();
+      return () => { cancelled = true; };
+    }, [cv.id, API]);
+
+    return (
+      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ p: 1, bgcolor: 'grey.100', borderBottom: '1px solid', borderColor: 'grey.300' }}>
+          <Typography variant="caption" color="text.secondary">
+            DOCX Preview (experimental)
+          </Typography>
+        </Box>
+        <Box sx={{ flex: 1, position: 'relative', overflow: 'auto', p: 2 }}>
+          {loadingDocx && (
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 2 }}>
+              <CircularProgress size={20} sx={{ mr: 1 }} />
+              <Typography variant="body2" color="text.secondary">Loading DOCX...</Typography>
+            </Box>
+          )}
+          <div ref={viewerRef} />
+          {fileError && (
+            <Box sx={{ mt: 2 }}>
+              <Alert severity="info">
+                Unable to preview DOCX inline. You can still download the file or view extracted text below.
+              </Alert>
+            </Box>
+          )}
+        </Box>
+        <Box sx={{ p: 2, display: 'flex', gap: 1 }}>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => {
+              const link = document.createElement('a');
+              link.href = `${API}/cv/${cv.id}/file`;
+              link.download = cv.filename;
+              link.target = '_blank';
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }}
+          >
+            Download File
+          </Button>
         </Box>
       </Box>
     );
