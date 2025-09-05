@@ -61,12 +61,25 @@ def validate_api_key(payload: APIKeyValidateRequest, user: User = Depends(get_cu
                     return APIKeyValidateResponse(valid=True, message="OpenAI key is valid")
                 return APIKeyValidateResponse(valid=False, message=f"OpenAI validation failed: {r.status_code}")
             elif payload.provider == "gemini":
-                # Minimal validation: models list (v1)
-                url = f"https://generativelanguage.googleapis.com/v1/models?key={payload.api_key}"
-                r = requests.get(url, timeout=20)
-                if r.status_code == 200:
-                    return APIKeyValidateResponse(valid=True, message="Gemini key is valid")
-                return APIKeyValidateResponse(valid=False, message=f"Gemini validation failed: {r.status_code}")
+                # Try both v1 and v1beta endpoints for Gemini validation
+                urls = [
+                    f"https://generativelanguage.googleapis.com/v1/models?key={payload.api_key}",
+                    f"https://generativelanguage.googleapis.com/v1beta/models?key={payload.api_key}"
+                ]
+                
+                for url in urls:
+                    try:
+                        r = requests.get(url, timeout=20)
+                        if r.status_code == 200:
+                            return APIKeyValidateResponse(valid=True, message="Gemini key is valid")
+                        elif r.status_code in [400, 403]:
+                            # Try next URL if this one returns 400 or 403
+                            continue
+                    except Exception:
+                        continue
+                
+                # If all URLs failed, return error
+                return APIKeyValidateResponse(valid=False, message=f"Gemini validation failed: Invalid API key or insufficient permissions")
             else:
                 return APIKeyValidateResponse(valid=False, message="Unsupported LLM provider")
         else:
@@ -190,7 +203,7 @@ def _call_gemini(cfg: LLMConfig, prompt: str):
     
     body = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": cfg.llm_temperature, "topP": cfg.llm_top_p, "maxOutputTokens": cfg.llm_max_tokens}
+        "generationConfig": {"temperature": cfg.llm_temperature, "topP": cfg.llm_top_p}
     }
     
     try:

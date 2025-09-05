@@ -19,6 +19,7 @@ from .minio_client import get_minio_client
 from .config import settings
 from .text_extract import sniff_and_extract_text
 from .tika_client import extract_text_via_tika
+from .presidio_client import analyze_and_anonymize
 
 
 
@@ -271,28 +272,8 @@ def upload_cv(
         if not collection:
             raise HTTPException(status_code=404, detail="CV collection not found")
 
-    # Save to temp and extract text
-    with tempfile.NamedTemporaryFile(delete=False) as tmp:
-        content = file.file.read()
-        tmp.write(content)
-        tmp_path = tmp.name
-
-    try:
-        extracted = sniff_and_extract_text(tmp_path, file.filename)
-        if not extracted:
-            extracted = extract_text_via_tika(content, file.content_type, file.filename)
-        if not extracted:
-            extracted = f"Could not extract text from {file.filename}. File may be corrupted or in unsupported format."
-        
-        # Clean text: remove NUL characters and other problematic characters
-        if extracted:
-            extracted = extracted.replace('\x00', '')  # Remove NUL characters
-            extracted = ''.join(char for char in extracted if ord(char) >= 32 or char in '\n\r\t')  # Keep only printable chars
-    finally:
-        try:
-            os.remove(tmp_path)
-        except Exception:
-            pass
+    # Just read file content for storage
+    content = file.file.read()
 
     client = get_minio_client()
     object_key = f"user-{user.id}/{file.filename}"
@@ -309,7 +290,7 @@ def upload_cv(
         owner_id=user.id, 
         filename=file.filename, 
         object_key=object_key, 
-        content_text=extracted,
+        content_text=None,  # Don't store extracted text
         collection_id=collection_id
     )
     db.add(cv)
@@ -415,6 +396,27 @@ def get_cv_content(
     }
 
 
+@router.get("/{cv_id}/content/anonymized")
+def get_cv_content_anonymized(
+    cv_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if user.role != UserRole.hr:
+        raise HTTPException(status_code=403, detail="Only HR can view CV content")
+    cv = db.query(CV).filter(CV.id == cv_id, CV.owner_id == user.id).first()
+    if not cv:
+        raise HTTPException(status_code=404, detail="CV not found")
+    text = cv.content_text or ""
+    anonymized = analyze_and_anonymize(text)
+    return {
+        "id": cv.id,
+        "filename": cv.filename,
+        "content": anonymized,
+        "created_at": cv.created_at.isoformat(),
+    }
+
+
 @router.get("/{cv_id}/file")
 def get_cv_file(
     cv_id: int,
@@ -447,11 +449,16 @@ def get_cv_file(
         # Read file data
         file_bytes = file_data.read()
         
+        # Prepare Content-Disposition with ASCII-safe fallback and RFC 5987 filename*
+        import urllib.parse
+        ascii_filename = cv.filename.encode('utf-8', errors='ignore').decode('ascii', errors='ignore') or 'file'
+        quoted_utf8 = urllib.parse.quote(cv.filename)
+        content_disposition = f"inline; filename={ascii_filename}; filename*=UTF-8''{quoted_utf8}"
         return Response(
             content=file_bytes,
             media_type=content_type,
             headers={
-                "Content-Disposition": f"inline; filename={cv.filename}",
+                "Content-Disposition": content_disposition,
                 "Cache-Control": "no-cache"
             }
         )
@@ -495,11 +502,16 @@ def view_cv_file(
         
         # For PDF files, return as inline
         if file_ext == 'pdf':
+            # Prepare Content-Disposition with ASCII-safe fallback and RFC 5987 filename*
+            import urllib.parse
+            ascii_filename = cv.filename.encode('utf-8', errors='ignore').decode('ascii', errors='ignore') or 'file'
+            quoted_utf8 = urllib.parse.quote(cv.filename)
+            content_disposition = f"inline; filename={ascii_filename}; filename*=UTF-8''{quoted_utf8}"
             return Response(
                 content=file_bytes,
                 media_type=content_type,
                 headers={
-                    "Content-Disposition": f"inline; filename={cv.filename}",
+                    "Content-Disposition": content_disposition,
                     "Cache-Control": "no-cache"
                 }
             )

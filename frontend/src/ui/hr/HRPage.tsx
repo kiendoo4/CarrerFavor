@@ -20,7 +20,14 @@ import {
   Chip,
   Paper,
   Divider,
-  Snackbar
+  Snackbar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails
 } from '@mui/material'
 import { 
   CloudUpload, 
@@ -28,7 +35,8 @@ import {
   Assessment, 
   Work,
   TrendingUp,
-  Folder
+  Folder,
+  ExpandMore
 } from '@mui/icons-material'
 import { LLMSettingsDialog } from './LLMSettingsDialog'
 import { useNavigate } from 'react-router-dom'
@@ -38,7 +46,14 @@ import { useAuth } from '../auth/AuthContext'
 const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
 type CVRow = { id: number; filename: string }
-type HRResult = { cv_id: number; filename: string; score: number }
+type HRResult = { 
+  cv_id: number; 
+  filename: string; 
+  score: number;
+  anonymized_cv_text?: string;
+  anonymized_jd_text?: string;
+  detailed_scores?: Record<string, number>;
+}
 
 export const HRPage: React.FC = () => {
   const { token, user } = useAuth()
@@ -50,6 +65,8 @@ export const HRPage: React.FC = () => {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [jdTab, setJdTab] = useState(0)
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false)
+  const [selectedResult, setSelectedResult] = useState<HRResult | null>(null)
 
   const headers = { Authorization: `Bearer ${token}` }
 
@@ -321,6 +338,7 @@ export const HRPage: React.FC = () => {
                             <TableCell sx={{ fontWeight: 600 }}>Candidate CV</TableCell>
                             <TableCell align="right" sx={{ fontWeight: 600 }}>Match Score</TableCell>
                             <TableCell align="right" sx={{ fontWeight: 600 }}>Rating</TableCell>
+                            <TableCell align="center" sx={{ fontWeight: 600 }}>Details</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
@@ -358,6 +376,19 @@ export const HRPage: React.FC = () => {
                                   sx={{ fontWeight: 600 }}
                                 />
                               </TableCell>
+                              <TableCell align="center">
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  onClick={() => {
+                                    // Show detailed results in a dialog
+                                    setSelectedResult(result);
+                                    setShowDetailsDialog(true);
+                                  }}
+                                >
+                                  View Details
+                                </Button>
+                              </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -379,6 +410,119 @@ export const HRPage: React.FC = () => {
       </Box>
       
       <LLMSettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      
+      {/* Detailed Results Dialog */}
+      <Dialog 
+        open={showDetailsDialog} 
+        onClose={() => setShowDetailsDialog(false)} 
+        maxWidth="lg" 
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            Detailed Match Analysis - {selectedResult?.filename}
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          {selectedResult && (
+            <Stack spacing={3}>
+              {/* Overall Score */}
+              <Box sx={{ p: 2, bgcolor: 'primary.light', borderRadius: 2, textAlign: 'center' }}>
+                <Typography variant="h4" sx={{ fontWeight: 700, color: 'primary.contrastText' }}>
+                  {(selectedResult.score * 100).toFixed(1)}%
+                </Typography>
+                <Typography variant="body1" color="primary.contrastText">
+                  Overall Match Score
+                </Typography>
+              </Box>
+
+              {/* Detailed Scores */}
+              {selectedResult.detailed_scores && (
+                <Accordion>
+                  <AccordionSummary expandIcon={<ExpandMore />}>
+                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                      Detailed Scoring Breakdown
+                    </Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Grid container spacing={2}>
+                      {Object.entries(selectedResult.detailed_scores).map(([key, value]) => (
+                        <Grid item xs={6} sm={4} key={key}>
+                          <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase' }}>
+                              {key.replace(/_/g, ' ')}
+                            </Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                              {(value * 100).toFixed(1)}%
+                            </Typography>
+                          </Box>
+                        </Grid>
+                      ))}
+                    </Grid>
+                  </AccordionDetails>
+                </Accordion>
+              )}
+
+              {/* Anonymized CV Text */}
+              {selectedResult.anonymized_cv_text && (
+                <Accordion>
+                  <AccordionSummary expandIcon={<ExpandMore />}>
+                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                      Anonymized CV Content
+                    </Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Paper sx={{ p: 2, bgcolor: 'grey.50', maxHeight: 300, overflow: 'auto' }}>
+                      <Typography 
+                        component="pre" 
+                        sx={{ 
+                          whiteSpace: 'pre-wrap', 
+                          fontFamily: 'monospace',
+                          fontSize: '0.875rem',
+                          lineHeight: 1.5
+                        }}
+                      >
+                        {selectedResult.anonymized_cv_text}
+                      </Typography>
+                    </Paper>
+                  </AccordionDetails>
+                </Accordion>
+              )}
+
+              {/* Anonymized JD Text */}
+              {selectedResult.anonymized_jd_text && (
+                <Accordion>
+                  <AccordionSummary expandIcon={<ExpandMore />}>
+                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                      Anonymized Job Description
+                    </Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Paper sx={{ p: 2, bgcolor: 'grey.50', maxHeight: 300, overflow: 'auto' }}>
+                      <Typography 
+                        component="pre" 
+                        sx={{ 
+                          whiteSpace: 'pre-wrap', 
+                          fontFamily: 'monospace',
+                          fontSize: '0.875rem',
+                          lineHeight: 1.5
+                        }}
+                      >
+                        {selectedResult.anonymized_jd_text}
+                      </Typography>
+                    </Paper>
+                  </AccordionDetails>
+                </Accordion>
+              )}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowDetailsDialog(false)}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   )
 }

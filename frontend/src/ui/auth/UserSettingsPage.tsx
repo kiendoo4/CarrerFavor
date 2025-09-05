@@ -75,10 +75,10 @@ export const UserSettingsPage: React.FC = () => {
         setAvatar(response.data.avatar_url);
       } catch (error) {
         console.error('Failed to fetch avatar URL:', error);
-        setAvatar('/default_avatar/default.jpeg');
+        setAvatar('/default_image/default_avatar.jpeg');
       }
     } else {
-      setAvatar('/default_avatar/default.jpeg');
+      setAvatar('/default_image/default_avatar.jpeg');
     }
   };
 
@@ -226,7 +226,7 @@ export const UserSettingsPage: React.FC = () => {
 
               <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
                 <Avatar
-                  src={avatar || '/default_avatar/default.jpeg'}
+                  src={avatar || '/default_image/default_avatar.jpeg'}
                   sx={{ width: 120, height: 120, mb: 2 }}
                 />
                 <Box sx={{ display: 'flex', gap: 1 }}>
@@ -362,14 +362,16 @@ export const UserSettingsPage: React.FC = () => {
                     <Typography variant="body2" color="text.secondary">
                       Temperature: {llmConfig.llm_temperature}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Max Tokens: {llmConfig.llm_max_tokens}
-                    </Typography>
+                    {llmConfig.llm_provider !== 'gemini' && (
+                      <Typography variant="body2" color="text.secondary">
+                        Max Tokens: {llmConfig.llm_max_tokens}
+                      </Typography>
+                    )}
                   </Grid>
                 </Grid>
               ) : (
                 <Typography variant="body2" color="text.secondary">
-                  No LLM configuration found. Please configure to enable CV parsing.
+                  No LLM configuration found. Please configure to enable CV matching.
                 </Typography>
               )}
             </CardContent>

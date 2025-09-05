@@ -34,7 +34,12 @@ import {
   Tab,
   Stack,
   LinearProgress,
-  Avatar
+  Avatar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Paper
 } from '@mui/material';
 import {
   Info as InfoIcon,
@@ -71,6 +76,9 @@ interface MatchItem {
   cv_id: number;
   filename: string;
   score: number;
+  anonymized_cv_text?: string;
+  anonymized_jd_text?: string;
+  detailed_scores?: Record<string, number>;
 }
 
 interface MatchResponse {
@@ -91,6 +99,8 @@ const MatchingPage: React.FC = () => {
   const [jdFile, setJdFile] = useState<File | null>(null);
   const [jdUploading, setJdUploading] = useState(false);
   const [matchResults, setMatchResults] = useState<MatchItem[] | null>(null);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [selectedResult, setSelectedResult] = useState<MatchItem | null>(null);
 
   useEffect(() => {
     fetchCollections();
@@ -460,19 +470,7 @@ const MatchingPage: React.FC = () => {
                             </Typography>
                           )}
                           
-                          <Box sx={{ mb: 2 }}>
-                            <FormControlLabel
-                              control={
-                                <Checkbox
-                                  checked={isAllCVsSelected}
-                                  indeterminate={isIndeterminate}
-                                  onChange={(e) => handleSelectAllCVsInCollection(collection.id, e.target.checked)}
-                                  color="primary"
-                                />
-                              }
-                              label={`Select all CVs in "${collection.name}"`}
-                            />
-                          </Box>
+                          {/* Removed select-all control; per-collection checkbox already handles this */}
                           
                           <Divider sx={{ my: 1 }} />
                           
@@ -557,11 +555,24 @@ const MatchingPage: React.FC = () => {
                             </Stack>
                             <LinearProgress variant="determinate" value={percent} sx={{ mt: 1, height: 8, borderRadius: 1 }} />
                           </Box>
-                          {idx === 0 && (
-                            <Tooltip title="Top match">
-                              <CheckCircleIcon color="success" />
-                            </Tooltip>
-                          )}
+                          <Tooltip title="View detailed analysis">
+                            <IconButton
+                              size="small"
+                              onClick={() => {
+                                setSelectedResult(item);
+                                setShowDetailsDialog(true);
+                              }}
+                              sx={{ 
+                                color: 'primary.main',
+                                '&:hover': { 
+                                  bgcolor: 'primary.light',
+                                  color: 'primary.contrastText'
+                                }
+                              }}
+                            >
+                              <InfoIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
                         </Stack>
                       </ListItem>
                     );
@@ -600,6 +611,119 @@ const MatchingPage: React.FC = () => {
           </Button>
         </Box>
       </Box>
+
+      {/* Detailed Results Dialog */}
+      <Dialog 
+        open={showDetailsDialog} 
+        onClose={() => setShowDetailsDialog(false)} 
+        maxWidth="lg" 
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            Detailed Match Analysis - {selectedResult?.filename}
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          {selectedResult && (
+            <Stack spacing={3}>
+              {/* Overall Score */}
+              <Box sx={{ p: 2, bgcolor: 'primary.light', borderRadius: 2, textAlign: 'center' }}>
+                <Typography variant="h4" sx={{ fontWeight: 700, color: 'primary.contrastText' }}>
+                  {(selectedResult.score * 100).toFixed(1)}%
+                </Typography>
+                <Typography variant="body1" color="primary.contrastText">
+                  Overall Match Score
+                </Typography>
+              </Box>
+
+              {/* Detailed Scores */}
+              {selectedResult.detailed_scores && (
+                <Accordion>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                      Detailed Scoring Breakdown
+                    </Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Grid container spacing={2}>
+                      {Object.entries(selectedResult.detailed_scores).map(([key, value]) => (
+                        <Grid item xs={6} sm={4} key={key}>
+                          <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase' }}>
+                              {key.replace(/_/g, ' ')}
+                            </Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                              {(value * 100).toFixed(1)}%
+                            </Typography>
+                          </Box>
+                        </Grid>
+                      ))}
+                    </Grid>
+                  </AccordionDetails>
+                </Accordion>
+              )}
+
+              {/* Anonymized CV Text */}
+              {selectedResult.anonymized_cv_text && (
+                <Accordion>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                      Anonymized CV Content
+                    </Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Paper sx={{ p: 2, bgcolor: 'grey.50', maxHeight: 300, overflow: 'auto' }}>
+                      <Typography 
+                        component="pre" 
+                        sx={{ 
+                          whiteSpace: 'pre-wrap', 
+                          fontFamily: 'monospace',
+                          fontSize: '0.875rem',
+                          lineHeight: 1.5
+                        }}
+                      >
+                        {selectedResult.anonymized_cv_text}
+                      </Typography>
+                    </Paper>
+                  </AccordionDetails>
+                </Accordion>
+              )}
+
+              {/* Anonymized JD Text */}
+              {selectedResult.anonymized_jd_text && (
+                <Accordion>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                      Anonymized Job Description
+                    </Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Paper sx={{ p: 2, bgcolor: 'grey.50', maxHeight: 300, overflow: 'auto' }}>
+                      <Typography 
+                        component="pre" 
+                        sx={{ 
+                          whiteSpace: 'pre-wrap', 
+                          fontFamily: 'monospace',
+                          fontSize: '0.875rem',
+                          lineHeight: 1.5
+                        }}
+                      >
+                        {selectedResult.anonymized_jd_text}
+                      </Typography>
+                    </Paper>
+                  </AccordionDetails>
+                </Accordion>
+              )}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowDetailsDialog(false)}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

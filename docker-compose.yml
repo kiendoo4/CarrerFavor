@@ -33,6 +33,22 @@ services:
     ports:
       - "9998:9998"
 
+  presidio-analyzer:
+    image: mcr.microsoft.com/presidio-analyzer:latest
+    platform: linux/amd64
+    environment:
+      - ANALYZER_LOG_LEVEL=INFO
+    ports:
+      - "3000:3000"
+
+  presidio-anonymizer:
+    image: mcr.microsoft.com/presidio-anonymizer:latest
+    platform: linux/amd64
+    environment:
+      - ANONYMIZER_LOG_LEVEL=INFO
+    ports:
+      - "3001:3000"
+
 volumes:
   postgres_data:
   minio_data:

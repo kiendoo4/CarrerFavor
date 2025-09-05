@@ -149,7 +149,7 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
               <Stack direction="row" alignItems="center" spacing={1}>
                 <Psychology color="secondary" />
                 <Typography variant="h6">LLM Settings</Typography>
-                <Chip label="For CV Parsing" size="small" color="secondary" variant="outlined" />
+                <Chip label="For CV Matching" size="small" color="secondary" variant="outlined" />
               </Stack>
             </AccordionSummary>
             <AccordionDetails>
@@ -203,14 +203,16 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
                     inputProps={{ min: 0, max: 1, step: 0.1 }}
                     helperText="0-1, controls diversity"
                   />
-                  <TextField 
-                    label="Max Tokens" 
-                    type="number" 
-                    value={cfg.llm_max_tokens} 
-                    onChange={e => setCfg({ ...cfg, llm_max_tokens: Number(e.target.value) })} 
-                    inputProps={{ min: 100, max: 4000, step: 100 }}
-                    helperText="Output length limit"
-                  />
+                  {cfg.llm_provider !== 'gemini' && (
+                    <TextField 
+                      label="Max Tokens" 
+                      type="number" 
+                      value={cfg.llm_max_tokens} 
+                      onChange={e => setCfg({ ...cfg, llm_max_tokens: Number(e.target.value) })} 
+                      inputProps={{ min: 100, max: 4000, step: 100 }}
+                      helperText="Output length limit"
+                    />
+                  )}
                 </Stack>
               </Stack>
             </AccordionDetails>

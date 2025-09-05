@@ -10,8 +10,9 @@ from .models import CV, User, UserRole, CVCollection
 from .schemas import MatchRequestSingle, MatchScore, HRMatchRequest, HRMatchResponse, HRMatchItem, CollectionResponse, MatchingRequest
 from .text_extract import sniff_and_extract_text
 from .tika_client import extract_text_via_tika
-from .scoring import compute_similarity_score
+from .scoring import compute_similarity_score, compute_similarity_score_detailed
 from .models import LLMConfig
+from .presidio_client import analyze_and_anonymize
 
 
 router = APIRouter(prefix="/match", tags=["match"])
@@ -25,18 +26,23 @@ def match_single(
 ):
     if not payload.cv_text or not payload.jd_text:
         raise HTTPException(status_code=400, detail="cv_text and jd_text are required")
+    
+    # Anonymize both CV and JD text before scoring
+    anonymized_cv_text = analyze_and_anonymize(payload.cv_text)
+    anonymized_jd_text = analyze_and_anonymize(payload.jd_text)
+    
     # Use user's LLM config so the agent has a valid key
     llm_config = db.query(LLMConfig).filter(LLMConfig.user_id == user.id).first()
     if llm_config and llm_config.llm_api_key:
         score = compute_similarity_score(
-            payload.cv_text,
-            payload.jd_text,
+            anonymized_cv_text,
+            anonymized_jd_text,
             llm_provider=str(llm_config.llm_provider.value if hasattr(llm_config.llm_provider, 'value') else llm_config.llm_provider),
             llm_model_name=llm_config.llm_model_name,
             api_key=llm_config.llm_api_key,
         )
     else:
-        score = compute_similarity_score(payload.cv_text, payload.jd_text)
+        score = compute_similarity_score(anonymized_cv_text, anonymized_jd_text)
     return MatchScore(score=score)
 
 
@@ -48,7 +54,12 @@ def match_single_file(
 ):
     cv_text = _read_upload_to_text(cv_file)
     jd_text = _read_upload_to_text(jd_file)
-    score = compute_similarity_score(cv_text, jd_text)
+    
+    # Anonymize both texts before scoring
+    anonymized_cv_text = analyze_and_anonymize(cv_text)
+    anonymized_jd_text = analyze_and_anonymize(jd_text)
+    
+    score = compute_similarity_score(anonymized_cv_text, anonymized_jd_text)
     return MatchScore(score=score)
 
 
@@ -72,6 +83,47 @@ def _read_upload_to_text(file: UploadFile) -> str:
     return text
 
 
+def _extract_cv_text_from_file(cv: CV) -> str:
+    """Extract text from CV file stored in MinIO"""
+    from .minio_client import get_minio_client
+    from .config import settings
+    
+    try:
+        client = get_minio_client()
+        file_data = client.get_object(bucket_name=settings.minio_bucket, object_name=cv.object_key)
+        content = file_data.read()
+        
+        # Save to temp file for text extraction
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            tmp.write(content)
+            tmp_path = tmp.name
+            
+        try:
+            text = sniff_and_extract_text(tmp_path, cv.filename) or ""
+            if not text:
+                # Determine content type based on file extension
+                file_ext = cv.filename.lower().split('.')[-1]
+                content_type_map = {
+                    'pdf': 'application/pdf',
+                    'doc': 'application/msword',
+                    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    'txt': 'text/plain',
+                    'rtf': 'application/rtf'
+                }
+                content_type = content_type_map.get(file_ext, 'application/octet-stream')
+                text = extract_text_via_tika(content, content_type, cv.filename)
+        finally:
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+                
+        return text or ""
+    except Exception as e:
+        print(f"Error extracting text from CV {cv.filename}: {e}")
+        return ""
+
+
 @router.post("/hr", response_model=HRMatchResponse)
 def match_hr(
     payload: HRMatchRequest,
@@ -90,23 +142,40 @@ def match_hr(
     llm_config = db.query(LLMConfig).filter(LLMConfig.user_id == user.id).first()
     results = []
     
+    # Anonymize JD text once
+    anonymized_jd_text = analyze_and_anonymize(payload.jd_text)
+    
     for cv_id in payload.cv_ids:
         cv = id_to_cv.get(cv_id)
         if not cv:
             continue
+            
+        # Extract CV text from file and anonymize it
+        cv_text = _extract_cv_text_from_file(cv)
+        anonymized_cv_text = analyze_and_anonymize(cv_text)
+        
         # Use agent-based structured scoring, configured by user's LLM settings if available
         if llm_config and llm_config.llm_api_key:
-            score = compute_similarity_score(
-                cv.content_text or "",
-                payload.jd_text,
+            detailed_scores = compute_similarity_score_detailed(
+                anonymized_cv_text,
+                anonymized_jd_text,
                 llm_provider=str(llm_config.llm_provider.value if hasattr(llm_config.llm_provider, 'value') else llm_config.llm_provider),
                 llm_model_name=llm_config.llm_model_name,
                 api_key=llm_config.llm_api_key,
             )
         else:
-            score = compute_similarity_score(cv.content_text or "", payload.jd_text)
+            detailed_scores = compute_similarity_score_detailed(anonymized_cv_text, anonymized_jd_text)
         
-        results.append(HRMatchItem(cv_id=cv.id, filename=cv.filename, score=score))
+        score = detailed_scores.get("score", 0.0)
+        
+        results.append(HRMatchItem(
+            cv_id=cv.id, 
+            filename=cv.filename, 
+            score=score,
+            anonymized_cv_text=anonymized_cv_text,
+            anonymized_jd_text=anonymized_jd_text,
+            detailed_scores=detailed_scores
+        ))
     
     results.sort(key=lambda x: x.score, reverse=True)
     return HRMatchResponse(results=results)

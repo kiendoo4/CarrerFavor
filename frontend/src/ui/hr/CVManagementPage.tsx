@@ -54,7 +54,6 @@ import {
   Upload as UploadIcon,
   Delete as DeleteIcon,
   Visibility as ViewIcon,
-  AutoAwesome as ParseIcon,
   Settings as SettingsIcon,
   Refresh as RefreshIcon,
   Add as AddIcon,
@@ -80,7 +79,6 @@ import {
   Info as InfoIcon
 } from '@mui/icons-material';
 import axios from 'axios';
-import { LLMSettingsDialog } from './LLMSettingsDialog';
 import { useAuth } from '../auth/AuthContext';
 import * as docx from 'docx-preview';
 
@@ -90,15 +88,40 @@ const FileViewer: React.FC<{ cv: CV; token: string | null }> = ({ cv, token }) =
   const [fileError, setFileError] = React.useState<string | null>(null);
   const viewerRef = React.useRef<HTMLDivElement | null>(null);
   const [loadingDocx, setLoadingDocx] = React.useState(false);
+  const [anonOpen, setAnonOpen] = React.useState(false);
+  const [anonLoading, setAnonLoading] = React.useState(false);
+  const [anonText, setAnonText] = React.useState('');
   
+  const fetchAnonymized = async () => {
+    try {
+      setAnonLoading(true);
+      const res = await fetch(`${API}/cv/${cv.id}/content/anonymized`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setAnonText(data.content || '');
+      setAnonOpen(true);
+    } catch (e) {
+      setAnonText('Failed to fetch anonymized content');
+      setAnonOpen(true);
+    } finally {
+      setAnonLoading(false);
+    }
+  };
+
   // For PDF files, try to use iframe
   if (cv.filename.toLowerCase().endsWith('.pdf')) {
     return (
       <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-        <Box sx={{ p: 1, bgcolor: 'grey.100', borderBottom: '1px solid', borderColor: 'grey.300' }}>
+        <Box sx={{ p: 1, bgcolor: 'grey.100', borderBottom: '1px solid', borderColor: 'grey.300', display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography variant="caption" color="text.secondary">
             PDF Viewer (if available)
           </Typography>
+          <Box sx={{ ml: 'auto' }}>
+            <Button size="small" variant="outlined" onClick={fetchAnonymized} disabled={anonLoading}>
+              {anonLoading ? 'Loading...' : 'View anonymized text'}
+            </Button>
+          </Box>
         </Box>
         <Box sx={{ flex: 1, position: 'relative' }}>
           <iframe
@@ -134,6 +157,15 @@ const FileViewer: React.FC<{ cv: CV; token: string | null }> = ({ cv, token }) =
             </Box>
           )}
         </Box>
+        <Dialog open={anonOpen} onClose={() => setAnonOpen(false)} fullWidth maxWidth="md">
+          <DialogTitle>Anonymized Text</DialogTitle>
+          <DialogContent>
+            <Typography component="pre" sx={{ whiteSpace: 'pre-wrap' }}>{anonText}</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setAnonOpen(false)}>Close</Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     );
   }
@@ -204,7 +236,19 @@ const FileViewer: React.FC<{ cv: CV; token: string | null }> = ({ cv, token }) =
           >
             Download File
           </Button>
+          <Button size="small" variant="outlined" onClick={fetchAnonymized} disabled={anonLoading}>
+            {anonLoading ? 'Loading...' : 'View anonymized text'}
+          </Button>
         </Box>
+        <Dialog open={anonOpen} onClose={() => setAnonOpen(false)} fullWidth maxWidth="md">
+          <DialogTitle>Anonymized Text</DialogTitle>
+          <DialogContent>
+            <Typography component="pre" sx={{ whiteSpace: 'pre-wrap' }}>{anonText}</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setAnonOpen(false)}>Close</Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     );
   }
@@ -232,6 +276,9 @@ const FileViewer: React.FC<{ cv: CV; token: string | null }> = ({ cv, token }) =
         >
           Download File
         </Button>
+        <Button size="small" variant="outlined" onClick={fetchAnonymized} disabled={anonLoading}>
+          {anonLoading ? 'Loading...' : 'View anonymized text'}
+        </Button>
       </Box>
       
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontWeight: 600 }}>
@@ -251,6 +298,16 @@ const FileViewer: React.FC<{ cv: CV; token: string | null }> = ({ cv, token }) =
         {cv.content || 'No text content available'}
       </Typography>
       
+      <Dialog open={anonOpen} onClose={() => setAnonOpen(false)} fullWidth maxWidth="md">
+        <DialogTitle>Anonymized Text</DialogTitle>
+        <DialogContent>
+          <Typography component="pre" sx={{ whiteSpace: 'pre-wrap' }}>{anonText}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAnonOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
       <Box sx={{ mt: 2, p: 2, bgcolor: 'warning.light', borderRadius: 1 }}>
         <Typography variant="body2" color="warning.dark">
           ⚠️ Note: The original file may not be available for download if it was uploaded before the storage reset.
@@ -302,8 +359,6 @@ export const CVManagementPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [parsing, setParsing] = useState<number | null>(null);
-  const [autoParse, setAutoParse] = useState(true);
   const [showViewDialog, setShowViewDialog] = useState(false);
   const [selectedCV, setSelectedCV] = useState<CV | null>(null);
   const [showCollectionDialog, setShowCollectionDialog] = useState(false);
@@ -386,28 +441,6 @@ export const CVManagementPage: React.FC = () => {
       }
       await fetchCollections();
 
-      // Auto parse if enabled
-      if (autoParse) {
-        // Get the latest CVs to find the newly uploaded ones
-        const latestCVs = await axios.get(`${API}/cv/list?collection_id=${selectedCollection}`, { headers });
-        const newCVs = latestCVs.data.cvs.filter((cv: CV) => 
-          selectedFiles.some(file => file.name === cv.filename)
-        );
-        
-        // Parse each new CV
-        for (const cv of newCVs) {
-          try {
-            await axios.post(`${API}/llm/parse/${cv.id}`, {}, { headers });
-          } catch (err) {
-            console.error(`Failed to auto-parse CV ${cv.filename}:`, err);
-          }
-        }
-        
-        // Refresh CVs again to show parsed data
-        if (selectedCollection) {
-          await fetchCVs(selectedCollection);
-        }
-      }
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to upload CV(s)');
     } finally {
@@ -443,45 +476,8 @@ export const CVManagementPage: React.FC = () => {
   };
 
   const handleCVClick = async (cv: CV) => {
-    try {
-      const response = await axios.get(`${API}/cv/${cv.id}/content`, { headers });
-      setSelectedCV({ 
-        ...cv, 
-        content: response.data.content,
-        parsed_metadata: response.data.parsed_metadata 
-      });
-      setShowCVDetailDialog(true);
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to fetch CV content');
-    }
-  };
-
-  const handleParse = async (cvId: number) => {
-    setParsing(cvId);
-    setError(null);
-    setSuccess(null);
-
-    try {
-      await axios.post(`${API}/llm/parse/${cvId}`, {}, { headers });
-      setSuccess('CV parsed successfully!');
-      
-      // Update selectedCV if it's the same CV being parsed
-      if (selectedCV && selectedCV.id === cvId) {
-        const response = await axios.get(`${API}/cv/${cvId}/content`, { headers });
-        setSelectedCV({ 
-          ...selectedCV, 
-          parsed_metadata: response.data.parsed_metadata 
-        });
-      }
-      
-      // Refresh CVs list to update the parsed status
-      fetchCVs(selectedCollection || undefined);
-      fetchCollections();
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to parse CV');
-    } finally {
-      setParsing(null);
-    }
+    setSelectedCV(cv);
+    setShowCVDetailDialog(true);
   };
 
   const handleCreateCollection = async () => {
@@ -537,85 +533,6 @@ export const CVManagementPage: React.FC = () => {
     });
   };
 
-  const renderParsedMetadata = (metadata: any) => {
-    if (!metadata) return null;
-
-    const fields = [
-      { key: 'full_name', label: 'Full Name', icon: <PersonIcon />, color: theme.palette.primary.main },
-      { key: 'email', label: 'Email', icon: <EmailIcon />, color: theme.palette.primary.main },
-      { key: 'phone', label: 'Phone', icon: <PhoneIcon />, color: theme.palette.primary.main },
-      { key: 'location', label: 'Location', icon: <LocationIcon />, color: theme.palette.primary.main },
-      { key: 'current_position', label: 'Current Position', icon: <WorkIcon />, color: theme.palette.primary.main },
-      { key: 'skills', label: 'Skills', icon: <WorkIcon />, color: theme.palette.primary.main },
-      { key: 'education', label: 'Education', icon: <SchoolIcon />, color: theme.palette.primary.main },
-      { key: 'experience', label: 'Experience', icon: <WorkIcon />, color: theme.palette.primary.main },
-    ];
-
-    const renderValue = (value: any) => {
-      if (Array.isArray(value)) {
-        if (value.length === 0) return 'None';
-        
-        // Handle array of objects (education, experience)
-        if (typeof value[0] === 'object' && value[0] !== null) {
-          return (
-            <Box>
-              {value.map((item, index) => (
-                <Box key={index} sx={{ mb: 1, p: 1, bgcolor: alpha(theme.palette.primary.main, 0.05), borderRadius: 1 }}>
-                  {Object.entries(item).map(([key, val]) => (
-                    <Typography key={key} variant="body2" sx={{ mb: 0.5 }}>
-                      <strong>{key.replace(/_/g, ' ').toUpperCase()}:</strong> {String(val || 'N/A')}
-                    </Typography>
-                  ))}
-                </Box>
-              ))}
-            </Box>
-          );
-        }
-        
-        // Handle array of strings (skills)
-        return value.join(', ');
-      }
-      
-      return String(value || 'N/A');
-    };
-
-    return (
-      <Box>
-        <Grid container spacing={1}>
-          {fields.map((field) => {
-            const value = metadata[field.key];
-            if (!value) return null;
-            
-            return (
-              <Grid item xs={12} key={field.key}>
-                <Box sx={{ 
-                  display: 'flex', 
-                  alignItems: 'flex-start', 
-                  gap: 1,
-                  p: 1,
-                  borderRadius: 1,
-                  bgcolor: alpha(field.color, 0.05),
-                  border: `1px solid ${alpha(field.color, 0.2)}`
-                }}>
-                  <Box sx={{ color: field.color, mt: 0.5 }}>
-                    {field.icon}
-                  </Box>
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                      {field.label}
-                    </Typography>
-                    <Box sx={{ mt: 0.5 }}>
-                      {renderValue(value)}
-                    </Box>
-                  </Box>
-                </Box>
-              </Grid>
-            );
-          })}
-        </Grid>
-      </Box>
-    );
-  };
 
   const getCollectionColor = (index: number) => {
     const colors = [
@@ -1124,17 +1041,6 @@ export const CVManagementPage: React.FC = () => {
                       onChange={handleFileSelect}
                     />
                   </Button>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={autoParse}
-                        onChange={(e) => setAutoParse(e.target.checked)}
-                        color="primary"
-                      />
-                    }
-                    label="Auto parse after upload"
-                    sx={{ ml: 2 }}
-                  />
                   {selectedFiles.length > 0 && (
                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                       {selectedFiles.map((file, index) => (
@@ -1302,15 +1208,6 @@ export const CVManagementPage: React.FC = () => {
                                 {formatDate(cv.uploaded_at)}
                               </Typography>
                             </Box>
-                            {cv.parsed_metadata && (
-                              <Chip 
-                                label="Parsed" 
-                                size="small" 
-                                color="success" 
-                                variant="outlined"
-                                icon={<CheckCircleIcon />}
-                              />
-                            )}
                           </Box>
                         </Box>
 
@@ -1326,19 +1223,6 @@ export const CVManagementPage: React.FC = () => {
                               sx={{ color: theme.palette.info.main }}
                             >
                               <ViewIcon />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Parse CV">
-                            <IconButton
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleParse(cv.id);
-                              }}
-                              disabled={parsing === cv.id}
-                              sx={{ color: theme.palette.warning.main }}
-                            >
-                              {parsing === cv.id ? <CircularProgress size={16} /> : <ParseIcon />}
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="Delete CV">
@@ -1569,51 +1453,24 @@ export const CVManagementPage: React.FC = () => {
           </Box>
         </DialogTitle>
         <DialogContent sx={{ pt: 3 }}>
-          {selectedCV?.parsed_metadata ? (
-            <Box>
-              <Typography variant="h6" sx={{ mb: 3, fontWeight: 600, color: theme.palette.primary.main }}>
-                Parsed Information
-              </Typography>
-              {renderParsedMetadata(selectedCV.parsed_metadata)}
-            </Box>
-          ) : (
-            <Box sx={{ textAlign: 'center', py: 4 }}>
-              <Avatar sx={{ 
-                width: 60, 
-                height: 60, 
-                bgcolor: alpha(theme.palette.warning.main, 0.1),
-                color: theme.palette.warning.main,
-                mx: 'auto',
-                mb: 2
-              }}>
-                <ParseIcon />
-              </Avatar>
-              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-                No parsed data available
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                This CV hasn't been parsed yet. Click the parse button to extract information.
-              </Typography>
-              <Button
-                variant="contained"
-                startIcon={parsing === selectedCV?.id ? <CircularProgress size={16} /> : <ParseIcon />}
-                onClick={() => {
-                  if (selectedCV) {
-                    handleParse(selectedCV.id);
-                  }
-                }}
-                disabled={parsing === selectedCV?.id}
-                sx={{ 
-                  bgcolor: theme.palette.primary.main,
-                  '&:hover': {
-                    bgcolor: theme.palette.primary.dark,
-                  }
-                }}
-              >
-                {parsing === selectedCV?.id ? 'Parsing...' : 'Parse CV'}
-              </Button>
-            </Box>
-          )}
+          <Box sx={{ textAlign: 'center', py: 4 }}>
+            <Avatar sx={{ 
+              width: 60, 
+              height: 60, 
+              bgcolor: alpha(theme.palette.primary.main, 0.1),
+              color: theme.palette.primary.main,
+              mx: 'auto',
+              mb: 2
+            }}>
+              {selectedCV && getFileIcon(selectedCV.filename)}
+            </Avatar>
+            <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+              {selectedCV?.filename}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Click "View Full CV" to see the document or use "View anonymized text" to see processed content.
+            </Typography>
+          </Box>
         </DialogContent>
         <DialogActions sx={{ p: 3, gap: 1 }}>
           <Button 

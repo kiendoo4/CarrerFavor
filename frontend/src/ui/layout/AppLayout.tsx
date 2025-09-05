@@ -71,10 +71,10 @@ export const AppLayout: React.FC = () => {
           setAvatarUrl(response.data.avatar_url);
         } catch (error) {
           console.error('Failed to fetch avatar URL:', error);
-          setAvatarUrl('/default_avatar/default.jpeg');
+          setAvatarUrl('/default_image/default_avatar.jpeg');
         }
       } else {
-        setAvatarUrl('/default_avatar/default.jpeg');
+        setAvatarUrl('/default_image/default_avatar.jpeg');
       }
     };
 
@@ -178,7 +178,7 @@ export const AppLayout: React.FC = () => {
                 }}
               >
                 <Avatar 
-                  src={avatarUrl || '/default_avatar/default.jpeg'}
+                  src={avatarUrl || '/default_image/default_avatar.jpeg'}
                   sx={{ 
                     width: 36, 
                     height: 36, 
@@ -186,9 +186,8 @@ export const AppLayout: React.FC = () => {
                     fontWeight: 600
                   }}
                   onError={(e) => {
-                    // Fallback to default avatar if image fails to load
                     const target = e.target as HTMLImageElement;
-                    target.src = '/default_avatar/default.jpeg';
+                    target.src = '/default_image/default_avatar.jpeg';
                   }}
                 >
                   {user?.email?.[0]?.toUpperCase() || 'U'}
