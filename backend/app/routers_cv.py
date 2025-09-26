@@ -407,8 +407,45 @@ def get_cv_content_anonymized(
     cv = db.query(CV).filter(CV.id == cv_id, CV.owner_id == user.id).first()
     if not cv:
         raise HTTPException(status_code=404, detail="CV not found")
+    # Ensure we have text: if missing, extract on-demand using Tika from MinIO and cache it
     text = cv.content_text or ""
+    if not text:
+        try:
+            client = get_minio_client()
+            file_obj = client.get_object(bucket_name=settings.minio_bucket, object_name=cv.object_key)
+            file_bytes = file_obj.read()
+
+            # Best-effort content-type by extension
+            file_ext = (cv.filename or "").lower().split(".")[-1]
+            content_type_map = {
+                'pdf': 'application/pdf',
+                'doc': 'application/msword',
+                'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'txt': 'text/plain',
+                'rtf': 'application/rtf'
+            }
+            content_type = content_type_map.get(file_ext)
+
+            extracted_text = extract_text_via_tika(file_bytes, content_type, cv.filename)
+            text = (extracted_text or "").strip()
+
+            # Cache back to DB for future requests
+            if text:
+                cv.content_text = text
+                db.commit()
+                db.refresh(cv)
+        except Exception as e:
+            print(f"On-demand text extraction failed for CV {cv.id}: {e}")
+            # Continue with empty text which will yield empty anonymized content
+    try:
+        print(f"[Anonymize] CV {cv.id}: extracted_text_len={len(text) if text else 0}")
+    except Exception:
+        pass
     anonymized = analyze_and_anonymize(text)
+    try:
+        print(f"[Anonymize] CV {cv.id}: anonymized_text_len={len(anonymized) if anonymized else 0}")
+    except Exception:
+        pass
     return {
         "id": cv.id,
         "filename": cv.filename,

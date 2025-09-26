@@ -24,7 +24,6 @@ Requirements:
   - nice_to_have: preferred or optional skills, qualifications, or requirements (weight = 1)  
   - years_experience  
   - education_level  
-  - certifications  
   - languages  
 
 - Output must be in structured JSON format:
@@ -33,7 +32,6 @@ Requirements:
   "nice_to_have": ["..."],
   "years_experience": "X years",
   "education_level": "...",
-  "certifications": ["..."],
   "languages": ["..."]
 }
 
@@ -62,7 +60,6 @@ Requirements:
   "nice_to_have": ["..."],
   "years_experience": "X years",
   "education_level": "...",
-  "certifications": ["..."],
   "languages": ["..."]
 }
 """,
@@ -127,11 +124,10 @@ def compute_relevant_score(jd: Dict, cv: Dict) -> Dict[str, float]:
 
     s_experience = indicator_match(jd.get("years_experience"), cv.get("years_experience"))
     s_education  = indicator_match(jd.get("education_level"), cv.get("education_level"))
-    s_cert       = indicator_match(jd.get("certifications", []), cv.get("certifications", []))
     s_lang       = indicator_match(jd.get("languages", []), cv.get("languages", []))
 
     # --- Final weighted score ---
-    score = (s_skills + s_experience + s_education + s_cert + s_lang) / 5
+    score = (s_skills + s_experience + s_education + s_lang) / 4
 
     return {
         "s_must": round(s_must, 4),
@@ -139,7 +135,6 @@ def compute_relevant_score(jd: Dict, cv: Dict) -> Dict[str, float]:
         "s_skills": round(s_skills, 4),
         "s_experience": s_experience,
         "s_education": s_education,
-        "s_certifications": s_cert,
         "s_languages": s_lang,
         "score": round(score, 4)
     }
@@ -201,8 +196,6 @@ async def run_resume_scoring_agent(cv_info, jd_info, llm_provider: str = None, l
 
         jd_response = remove_json_fence(jd_response)
         cv_response = remove_json_fence(cv_response)
-        print("jd: ", jd_response)
-        print("cv: ", cv_response)
         try:
             jd_skills = json.loads(jd_response) if jd_response else {}
             cv_skills = json.loads(cv_response) if cv_response else {}
@@ -210,7 +203,6 @@ async def run_resume_scoring_agent(cv_info, jd_info, llm_provider: str = None, l
             # If parsing fails, treat as empty indicators
             jd_skills, cv_skills = {}, {}
         score = compute_relevant_score(jd_skills, cv_skills)
-        print("score: ", score)
         # Get session and debug session state
         session = await session_service.get_session(
             app_name=APP_NAME,

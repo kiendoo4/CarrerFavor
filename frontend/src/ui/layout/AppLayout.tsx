@@ -22,7 +22,8 @@ import {
   Person, 
   Business,
   Folder,
-  Settings
+  Settings,
+  Assessment
 } from '@mui/icons-material'
 import axios from 'axios'
 
@@ -151,6 +152,17 @@ export const AppLayout: React.FC = () => {
                   sx={{ minWidth: 'auto' }}
                 >
                   CV Management
+                </Button>
+              )}
+              {user?.role === 'hr' && (
+                <Button
+                  variant={window.location.pathname === '/evaluation' ? 'contained' : 'outlined'}
+                  size="small"
+                  startIcon={<Assessment />}
+                  onClick={() => navigate('/evaluation')}
+                  sx={{ minWidth: 'auto' }}
+                >
+                  Evaluation
                 </Button>
               )}
             </Box>

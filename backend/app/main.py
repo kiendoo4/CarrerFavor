@@ -10,6 +10,7 @@ from .routers_match import router as match_router, router_matching
 from .routers_debug import router as debug_router
 from .routers_utils import router as utils_router
 from .routers_llm import router as llm_router
+from .routers_evaluation import router as evaluation_router
 
 
 def create_app() -> FastAPI:
@@ -32,6 +33,7 @@ def create_app() -> FastAPI:
     app.include_router(debug_router)
     app.include_router(utils_router)
     app.include_router(llm_router)
+    app.include_router(evaluation_router)
 
     @app.get("/healthz")
     def healthz():

@@ -11,6 +11,7 @@ import { CandidatePage } from './candidate/CandidatePage'
 import { HRPage } from './hr/HRPage'
 import { CVManagementPage } from './hr/CVManagementPage'
 import MatchingPage from './hr/MatchingPage'
+import { EvaluationPage } from './hr/EvaluationPage'
 import { UserSettingsPage } from './auth/UserSettingsPage'
 
 export const App: React.FC = () => {
@@ -32,6 +33,7 @@ export const App: React.FC = () => {
               <Route path="hr" element={<HRPage />} />
               <Route path="cv-management" element={<CVManagementPage />} />
               <Route path="matching" element={<MatchingPage />} />
+              <Route path="evaluation" element={<EvaluationPage />} />
               <Route path="settings" element={<UserSettingsPage />} />
             </Route>
           </Routes>
