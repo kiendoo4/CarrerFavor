@@ -279,10 +279,14 @@ export const EvaluationPage: React.FC = () => {
       })
       
       // Handle results based on method
-      if (matchingMethod === 'threshold' && response.data.results) {
+      if (response.data.results) {
         setEvaluationResults(response.data.results)
         setShowResults(true)
-        setSuccess('Threshold-based evaluation completed!')
+        if (matchingMethod === 'threshold') {
+          setSuccess('Threshold-based evaluation completed!')
+        } else {
+          setSuccess('Description-based evaluation completed!')
+        }
       } else {
         setEvaluationData({
           file: selectedFile!,
@@ -292,7 +296,7 @@ export const EvaluationPage: React.FC = () => {
           labelRules,
           totalRows
         })
-        setSuccess('Description-based evaluation started successfully!')
+        setSuccess('Evaluation started successfully!')
       }
     } catch (err: any) {
       setError('Failed to start evaluation: ' + (err.response?.data?.detail || err.message || 'Unknown error'))
@@ -732,20 +736,65 @@ export const EvaluationPage: React.FC = () => {
                     <Table stickyHeader>
                       <TableHead>
                         <TableRow>
-                          <TableCell sx={{ fontWeight: 600, bgcolor: alpha(theme.palette.primary.main, 0.1) }}>
+                          <TableCell 
+                            sx={{ 
+                              fontWeight: 600, 
+                              bgcolor: theme.palette.background.paper,
+                              borderBottom: `2px solid ${theme.palette.divider}`,
+                              position: 'sticky',
+                              top: 0,
+                              zIndex: 1
+                            }}
+                          >
                             CV Text
                           </TableCell>
-                          <TableCell sx={{ fontWeight: 600, bgcolor: alpha(theme.palette.primary.main, 0.1) }}>
+                          <TableCell 
+                            sx={{ 
+                              fontWeight: 600, 
+                              bgcolor: theme.palette.background.paper,
+                              borderBottom: `2px solid ${theme.palette.divider}`,
+                              position: 'sticky',
+                              top: 0,
+                              zIndex: 1
+                            }}
+                          >
                             JD Text
                           </TableCell>
-                          <TableCell sx={{ fontWeight: 600, bgcolor: alpha(theme.palette.primary.main, 0.1) }}>
+                          <TableCell 
+                            sx={{ 
+                              fontWeight: 600, 
+                              bgcolor: theme.palette.background.paper,
+                              borderBottom: `2px solid ${theme.palette.divider}`,
+                              position: 'sticky',
+                              top: 0,
+                              zIndex: 1
+                            }}
+                          >
                             Expected Label
                           </TableCell>
-                          <TableCell sx={{ fontWeight: 600, bgcolor: alpha(theme.palette.primary.main, 0.1) }}>
+                          <TableCell 
+                            sx={{ 
+                              fontWeight: 600, 
+                              bgcolor: theme.palette.background.paper,
+                              borderBottom: `2px solid ${theme.palette.divider}`,
+                              position: 'sticky',
+                              top: 0,
+                              zIndex: 1
+                            }}
+                          >
                             Predicted Label
                           </TableCell>
                           {matchingMethod === 'threshold' && (
-                            <TableCell sx={{ fontWeight: 600, bgcolor: alpha(theme.palette.primary.main, 0.1) }}>
+                            <TableCell 
+                              sx={{ 
+                                fontWeight: 600, 
+                                bgcolor: theme.palette.background.paper,
+                                borderBottom: `2px solid ${theme.palette.divider}`,
+                                position: 'sticky',
+                                top: 0,
+                                zIndex: 1
+                              }}
+                            >
                               Score
                             </TableCell>
                           )}
