@@ -25,7 +25,16 @@ import {
   CircularProgress,
   alpha,
   useTheme,
-  IconButton
+  IconButton,
+  ToggleButton,
+  ToggleButtonGroup,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Slider
 } from '@mui/material'
 import {
   CloudUpload,
@@ -71,6 +80,16 @@ interface EvaluationData {
   totalRows: number
 }
 
+interface EvaluationResult {
+  cv: string
+  jd: string
+  expectedLabel: string
+  predictedLabel: string
+  score?: number
+}
+
+type MatchingMethod = 'threshold' | 'description'
+
 export const EvaluationPage: React.FC = () => {
   const { token, user } = useAuth()
   const theme = useTheme()
@@ -92,6 +111,12 @@ export const EvaluationPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [evaluationData, setEvaluationData] = useState<EvaluationData | null>(null)
+  
+  // New state for matching methods
+  const [matchingMethod, setMatchingMethod] = useState<MatchingMethod>('threshold')
+  const [labelThresholds, setLabelThresholds] = useState<{[label: string]: {match: number, noMatch: number}}>({})
+  const [evaluationResults, setEvaluationResults] = useState<EvaluationResult[]>([])
+  const [showResults, setShowResults] = useState(false)
 
   const headers = { Authorization: `Bearer ${token}` }
 
@@ -183,13 +208,51 @@ export const EvaluationPage: React.FC = () => {
     )
   }
 
+  // Handle label threshold change
+  const handleLabelThresholdChange = (label: string, type: 'match' | 'noMatch', value: number) => {
+    setLabelThresholds(prev => ({
+      ...prev,
+      [label]: {
+        ...prev[label],
+        [type]: value
+      }
+    }))
+  }
+
+  // Initialize thresholds when labelInfo changes
+  useEffect(() => {
+    if (labelInfo.length > 0) {
+      const initialThresholds: {[label: string]: {match: number, noMatch: number}} = {}
+      labelInfo.forEach(label => {
+        initialThresholds[label.label] = {
+          match: 0.7,
+          noMatch: 0.3
+        }
+      })
+      setLabelThresholds(initialThresholds)
+    }
+  }, [labelInfo])
+
   // Handle start evaluation
   const handleStartEvaluation = async () => {
-    // Check if all label rules are filled
-    const emptyRules = labelRules.filter(rule => !rule.rule.trim())
-    if (emptyRules.length > 0) {
-      setError('Please fill in rules for all labels')
-      return
+    if (matchingMethod === 'description') {
+      // Check if all label rules are filled for description method
+      const emptyRules = labelRules.filter(rule => !rule.rule.trim())
+      if (emptyRules.length > 0) {
+        setError('Please fill in rules for all labels')
+        return
+      }
+    } else if (matchingMethod === 'threshold') {
+      // Check if all thresholds are filled for threshold method
+      const missingThresholds = labelInfo.filter(label => 
+        !labelThresholds[label.label] || 
+        labelThresholds[label.label].match === undefined || 
+        labelThresholds[label.label].noMatch === undefined
+      )
+      if (missingThresholds.length > 0) {
+        setError('Please set thresholds for all labels')
+        return
+      }
     }
 
     setLoading(true)
@@ -200,7 +263,13 @@ export const EvaluationPage: React.FC = () => {
       formData.append('cv_column', columnMapping.cvTextColumn)
       formData.append('jd_column', columnMapping.jdTextColumn)
       formData.append('label_column', columnMapping.labelColumn)
-      formData.append('label_rules', JSON.stringify(labelRules))
+      formData.append('matching_method', matchingMethod)
+      
+      if (matchingMethod === 'threshold') {
+        formData.append('label_thresholds', JSON.stringify(labelThresholds))
+      } else {
+        formData.append('label_rules', JSON.stringify(labelRules))
+      }
       
       const response = await axios.post(`${API}/evaluation/start-evaluation`, formData, {
         headers: {
@@ -209,15 +278,22 @@ export const EvaluationPage: React.FC = () => {
         }
       })
       
-      setEvaluationData({
-        file: selectedFile!,
-        columns: fileColumns,
-        columnMapping,
-        labelInfo,
-        labelRules,
-        totalRows
-      })
-      setSuccess('Evaluation started successfully!')
+      // Handle results based on method
+      if (matchingMethod === 'threshold' && response.data.results) {
+        setEvaluationResults(response.data.results)
+        setShowResults(true)
+        setSuccess('Threshold-based evaluation completed!')
+      } else {
+        setEvaluationData({
+          file: selectedFile!,
+          columns: fileColumns,
+          columnMapping,
+          labelInfo,
+          labelRules,
+          totalRows
+        })
+        setSuccess('Description-based evaluation started successfully!')
+      }
     } catch (err: any) {
       setError('Failed to start evaluation: ' + (err.response?.data?.detail || err.message || 'Unknown error'))
     } finally {
@@ -238,12 +314,21 @@ export const EvaluationPage: React.FC = () => {
 
   // Check if evaluation can start
   const canStartEvaluation = () => {
-    return selectedFile && 
-           columnMapping.cvTextColumn && 
-           columnMapping.jdTextColumn && 
-           columnMapping.labelColumn &&
-           labelRules.length > 0 &&
-           labelRules.every(rule => rule.rule.trim())
+    if (!selectedFile || !columnMapping.cvTextColumn || !columnMapping.jdTextColumn || !columnMapping.labelColumn) {
+      return false
+    }
+    
+    if (matchingMethod === 'description') {
+      return labelRules.length > 0 && labelRules.every(rule => rule.rule.trim())
+    } else if (matchingMethod === 'threshold') {
+      return labelInfo.length > 0 && labelInfo.every(label => 
+        labelThresholds[label.label] && 
+        labelThresholds[label.label].match !== undefined && 
+        labelThresholds[label.label].noMatch !== undefined
+      )
+    }
+    
+    return false
   }
 
   if (user?.role !== 'hr') {
@@ -430,15 +515,143 @@ export const EvaluationPage: React.FC = () => {
             </Card>
           </Grid>
 
-          {/* CV-JD Matching Rules */}
+          {/* Matching Method Selection */}
           {labelInfo.length > 0 && (
+            <Grid item xs={12}>
+              <Card>
+                <CardContent>
+                  <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 3 }}>
+                    <Assessment color="primary" />
+                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                      Matching Method
+                    </Typography>
+                  </Stack>
+
+                  <Paper sx={{ p: 3, bgcolor: alpha(theme.palette.primary.main, 0.05) }}>
+                    <Stack spacing={3}>
+                      <Box>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                          Choose how to evaluate CV-JD matching:
+                        </Typography>
+                        
+                        <ToggleButtonGroup
+                          value={matchingMethod}
+                          exclusive
+                          onChange={(e, newMethod) => newMethod && setMatchingMethod(newMethod)}
+                          fullWidth
+                          sx={{ mb: 3 }}
+                        >
+                          <ToggleButton value="threshold" sx={{ flex: 1 }}>
+                            <Stack alignItems="center" spacing={1}>
+                              <TrendingUp />
+                              <Typography variant="body2">Threshold-based</Typography>
+                            </Stack>
+                          </ToggleButton>
+                          <ToggleButton value="description" sx={{ flex: 1 }}>
+                            <Stack alignItems="center" spacing={1}>
+                              <Description />
+                              <Typography variant="body2">Description-based</Typography>
+                            </Stack>
+                          </ToggleButton>
+                        </ToggleButtonGroup>
+                      </Box>
+
+                      {matchingMethod === 'threshold' && (
+                        <Box>
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                            Set thresholds for each label (range: 0.0 - 1.0):
+                          </Typography>
+                          <Stack spacing={3}>
+                            {labelInfo.map((label, index) => (
+                              <Box key={index}>
+                                <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
+                                  <Chip 
+                                    label={label.label} 
+                                    color="primary" 
+                                    variant="outlined"
+                                    sx={{ fontWeight: 600 }}
+                                  />
+                                  <Typography variant="body2" color="text.secondary">
+                                    {label.count} samples
+                                  </Typography>
+                                </Stack>
+                                <Grid container spacing={2}>
+                                  <Grid item xs={6}>
+                                    <TextField
+                                      fullWidth
+                                      label="Match Threshold"
+                                      type="number"
+                                      inputProps={{ 
+                                        min: 0, 
+                                        max: 1, 
+                                        step: 0.01,
+                                        pattern: "[0-9]*\\.?[0-9]*"
+                                      }}
+                                      value={labelThresholds[label.label]?.match ?? ''}
+                                      onChange={(e) => {
+                                        const value = parseFloat(e.target.value)
+                                        if (!isNaN(value) && value >= 0 && value <= 1) {
+                                          handleLabelThresholdChange(label.label, 'match', value)
+                                        }
+                                      }}
+                                      size="small"
+                                      helperText="Score >= this value = match (0.0 - 1.0)"
+                                      placeholder="0.7"
+                                    />
+                                  </Grid>
+                                  <Grid item xs={6}>
+                                    <TextField
+                                      fullWidth
+                                      label="No Match Threshold"
+                                      type="number"
+                                      inputProps={{ 
+                                        min: 0, 
+                                        max: 1, 
+                                        step: 0.01,
+                                        pattern: "[0-9]*\\.?[0-9]*"
+                                      }}
+                                      value={labelThresholds[label.label]?.noMatch ?? ''}
+                                      onChange={(e) => {
+                                        const value = parseFloat(e.target.value)
+                                        if (!isNaN(value) && value >= 0 && value <= 1) {
+                                          handleLabelThresholdChange(label.label, 'noMatch', value)
+                                        }
+                                      }}
+                                      size="small"
+                                      helperText="Score < this value = no match (0.0 - 1.0)"
+                                      placeholder="0.3"
+                                    />
+                                  </Grid>
+                                </Grid>
+                              </Box>
+                            ))}
+                          </Stack>
+                        </Box>
+                      )}
+
+                      {matchingMethod === 'description' && (
+                        <Box>
+                          <Typography variant="body2" color="text.secondary">
+                            Define rules for each label to evaluate matching effectiveness:
+                          </Typography>
+                        </Box>
+                      )}
+                    </Stack>
+                  </Paper>
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
+
+          {/* CV-JD Matching Rules - Only show for description method */}
+          {labelInfo.length > 0 && matchingMethod === 'description' && (
             <Grid item xs={12}>
               <Card>
                 <CardContent>
                   <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 3 }}>
                     <Label color="warning" />
                     <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                      Matching Rules
+                      Label Rules
                     </Typography>
                   </Stack>
 
@@ -484,7 +697,7 @@ export const EvaluationPage: React.FC = () => {
                 variant="contained"
                 startIcon={loading ? <CircularProgress size={20} /> : <PlayArrow />}
                 onClick={handleStartEvaluation}
-                disabled={loading}
+                disabled={loading || !canStartEvaluation()}
                 sx={{
                   fontWeight: 600,
                   background: 'linear-gradient(45deg, #2563eb 30%, #7c3aed 90%)',
@@ -502,6 +715,100 @@ export const EvaluationPage: React.FC = () => {
               )}
             </Box>
           </Grid>
+
+          {/* Evaluation Results Table */}
+          {showResults && evaluationResults.length > 0 && (
+            <Grid item xs={12}>
+              <Card>
+                <CardContent>
+                  <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 3 }}>
+                  <Analytics color="success" />
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    Evaluation Results
+                  </Typography>
+                </Stack>
+
+                  <TableContainer component={Paper} sx={{ maxHeight: 600 }}>
+                    <Table stickyHeader>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell sx={{ fontWeight: 600, bgcolor: alpha(theme.palette.primary.main, 0.1) }}>
+                            CV Text
+                          </TableCell>
+                          <TableCell sx={{ fontWeight: 600, bgcolor: alpha(theme.palette.primary.main, 0.1) }}>
+                            JD Text
+                          </TableCell>
+                          <TableCell sx={{ fontWeight: 600, bgcolor: alpha(theme.palette.primary.main, 0.1) }}>
+                            Expected Label
+                          </TableCell>
+                          <TableCell sx={{ fontWeight: 600, bgcolor: alpha(theme.palette.primary.main, 0.1) }}>
+                            Predicted Label
+                          </TableCell>
+                          {matchingMethod === 'threshold' && (
+                            <TableCell sx={{ fontWeight: 600, bgcolor: alpha(theme.palette.primary.main, 0.1) }}>
+                              Score
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {evaluationResults.map((result, index) => (
+                          <TableRow key={index} hover>
+                            <TableCell sx={{ maxWidth: 200, wordBreak: 'break-word' }}>
+                              <Typography variant="body2" noWrap>
+                                {result.cv.length > 100 ? `${result.cv.substring(0, 100)}...` : result.cv}
+                              </Typography>
+                            </TableCell>
+                            <TableCell sx={{ maxWidth: 200, wordBreak: 'break-word' }}>
+                              <Typography variant="body2" noWrap>
+                                {result.jd.length > 100 ? `${result.jd.substring(0, 100)}...` : result.jd}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Chip 
+                                label={result.expectedLabel} 
+                                color="primary" 
+                                variant="outlined"
+                                size="small"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Chip 
+                                label={result.predictedLabel} 
+                                color={result.expectedLabel === result.predictedLabel ? "success" : "error"}
+                                variant={result.expectedLabel === result.predictedLabel ? "filled" : "outlined"}
+                                size="small"
+                              />
+                            </TableCell>
+                            {matchingMethod === 'threshold' && result.score !== undefined && (
+                              <TableCell>
+                                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                  {result.score.toFixed(3)}
+                                </Typography>
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+
+                  <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Showing {evaluationResults.length} results
+                    </Typography>
+                    <Button
+                      variant="outlined"
+                      onClick={() => setShowResults(false)}
+                      size="small"
+                    >
+                      Close Results
+                    </Button>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
         </Grid>
 
         {/* Column Mapping Dialog */}
