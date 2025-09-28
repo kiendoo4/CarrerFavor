@@ -72,17 +72,53 @@ root_agent = SequentialAgent(
 )
 
 
-def configure_agents_from_llm_config(llm_provider: str, llm_model_name: str, api_key: str):
+def configure_agents_from_llm_config(llm_provider: str, llm_model_name: str, api_key: str, ollama_base_url: str = None):
     """Configure underlying LLM model for all sub-agents using LiteLlm.
-    llm_provider: factory name, e.g., "openai" or "gemini"
-    llm_model_name: model, e.g., "gpt-4o-mini" or "gemini-2.0-flash"
-    api_key: provider API key
+    llm_provider: factory name, e.g., "openai", "gemini", or "ollama"
+    llm_model_name: model, e.g., "gpt-4o-mini", "gemini-2.0-flash", or "llama3.2"
+    api_key: provider API key (not used for Ollama)
+    ollama_base_url: base URL for Ollama (e.g., "http://localhost:11434")
     """
-    if not llm_provider or not llm_model_name or not api_key:
+    if not llm_provider or not llm_model_name:
         return
     try:
-        model_card = f"{str(llm_provider).lower()}/{llm_model_name}"
-        model = LiteLlm(model_card, api_key=api_key)
+        if llm_provider.lower() == "ollama":
+            if not ollama_base_url:
+                print("No Ollama base URL provided")
+                return
+            # Ensure URL has protocol
+            base_url = ollama_base_url.strip()
+            if not base_url.startswith(('http://', 'https://')):
+                base_url = f"http://{base_url}"
+            # For Ollama, we need to set the base URL in the model card
+            # Try different formats for Ollama integration
+            model_card = f"ollama_chat/{llm_model_name}"
+            print(f"Configuring Ollama model: {model_card} with base_url: {base_url}")
+            try:
+                # Try with api_base parameter
+                model = LiteLlm(model_card, api_key="ollama", api_base=base_url)
+                print(f"Ollama model configured successfully: {model_card}")
+            except Exception as e:
+                print(f"Failed to configure Ollama model with api_base: {e}")
+                try:
+                    # Try alternative format without api_base
+                    model = LiteLlm(model_card, api_key="ollama")
+                    print(f"Ollama model configured without api_base: {model_card}")
+                except Exception as e2:
+                    print(f"Failed to configure Ollama model without api_base: {e2}")
+                    try:
+                        # Try with different model card format
+                        alt_model_card = f"ollama_chat/{llm_model_name}"
+                        model = LiteLlm(alt_model_card)
+                        print(f"Ollama model configured with alternative format: {alt_model_card}")
+                    except Exception as e3:
+                        print(f"Failed to configure Ollama model with alternative format: {e3}")
+                        return
+        else:
+            if not api_key:
+                return
+            model_card = f"{str(llm_provider).lower()}/{llm_model_name}"
+            model = LiteLlm(model_card, api_key=api_key)
         extract_JD_skills_agent.model = model
         extract_resume_skills_agent.model = model
     except Exception:
@@ -139,9 +175,9 @@ def compute_relevant_score(jd: Dict, cv: Dict) -> Dict[str, float]:
         "score": round(score, 4)
     }
 
-async def run_resume_scoring_agent(cv_info, jd_info, llm_provider: str = None, llm_model_name: str = None, api_key: str = None):
+async def run_resume_scoring_agent(cv_info, jd_info, llm_provider: str = None, llm_model_name: str = None, api_key: str = None, ollama_base_url: str = None):
     """Run the structured extraction agents and compute the relevance score.
-    If llm_provider, llm_model_name, and api_key are provided, set the model immediately.
+    If llm_provider, llm_model_name, and api_key/ollama_base_url are provided, set the model immediately.
     """
     session_service = InMemorySessionService()
     APP_NAME = "resume"
@@ -159,6 +195,13 @@ async def run_resume_scoring_agent(cv_info, jd_info, llm_provider: str = None, l
                     os.environ.setdefault("OPENAI_API_KEY", api_key)
                 elif provider == "gemini":
                     os.environ.setdefault("GOOGLE_API_KEY", api_key)
+            elif llm_provider and llm_provider.lower() == "ollama" and ollama_base_url:
+                # Set Ollama environment variables
+                base_url = ollama_base_url.strip()
+                if not base_url.startswith(('http://', 'https://')):
+                    base_url = f"http://{base_url}"
+                os.environ.setdefault("OLLAMA_API_BASE", base_url)
+                print(f"Set OLLAMA_API_BASE to: {base_url}")
             # Disable LiteLLM background logging to avoid event loop warnings
             try:
                 os.environ.setdefault("LITELLM_LOGGING", "false")
@@ -166,10 +209,50 @@ async def run_resume_scoring_agent(cv_info, jd_info, llm_provider: str = None, l
             except Exception:
                 pass
             # Create model
-            if llm_provider and llm_model_name and api_key:
-                model_card = f"{str(llm_provider).lower()}/{llm_model_name}"
-                model = LiteLlm(model_card, api_key=api_key)
+            if llm_provider and llm_model_name:
+                if llm_provider.lower() == "ollama":
+                    if ollama_base_url:
+                        # Ensure URL has protocol
+                        base_url = ollama_base_url.strip()
+                        if not base_url.startswith(('http://', 'https://')):
+                            base_url = f"http://{base_url}"
+                        model_card = f"ollama_chat/{llm_model_name}"
+                        print(f"Creating Ollama model: {model_card} with base_url: {base_url}")
+                        try:
+                            # Try with api_base parameter
+                            model = LiteLlm(model_card, api_key="ollama", api_base=base_url)
+                            print(f"Ollama model created successfully: {model_card}")
+                        except Exception as e:
+                            print(f"Failed to create Ollama model with api_base: {e}")
+                            try:
+                                # Try alternative format without api_base
+                                model = LiteLlm(model_card, api_key="ollama")
+                                print(f"Ollama model created without api_base: {model_card}")
+                            except Exception as e2:
+                                print(f"Failed to create Ollama model without api_base: {e2}")
+                                try:
+                                    # Try with different model card format
+                                    alt_model_card = f"ollama_chat/{llm_model_name}"
+                                    model = LiteLlm(alt_model_card)
+                                    print(f"Ollama model created with alternative format: {alt_model_card}")
+                                except Exception as e3:
+                                    print(f"Failed to create Ollama model with alternative format: {e3}")
+                                    # Fallback to default
+                                    model = LiteLlm("gemini/gemini-2.0-flash")
+                    else:
+                        print("No Ollama base URL provided, using fallback")
+                        # Fallback default to avoid missing model errors
+                        model = LiteLlm("gemini/gemini-2.0-flash")
+                elif api_key:
+                    model_card = f"{str(llm_provider).lower()}/{llm_model_name}"
+                    print(f"Creating model: {model_card}")
+                    model = LiteLlm(model_card, api_key=api_key)
+                else:
+                    print("No API key provided, using fallback")
+                    # Fallback default to avoid missing model errors
+                    model = LiteLlm("gemini/gemini-2.0-flash")
             else:
+                print("No provider or model name, using fallback")
                 # Fallback default to avoid missing model errors
                 model = LiteLlm("gemini/gemini-2.0-flash")
             extract_JD_skills_agent.model = model

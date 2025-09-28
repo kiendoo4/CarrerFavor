@@ -128,11 +128,12 @@ class HRMatchResponse(BaseModel):
 
 class LLMConfigIn(BaseModel):
     llm_provider: LLMProvider
-    llm_api_key: str
+    llm_api_key: Optional[str] = None
     llm_model_name: str
     llm_temperature: float = 0.2
     llm_top_p: float = 1.0
     llm_max_tokens: int = 1024
+    ollama_base_url: Optional[str] = None
     # Embedding settings removed
 
 
@@ -142,14 +143,16 @@ class LLMConfigOut(BaseModel):
     llm_temperature: float
     llm_top_p: float
     llm_max_tokens: int
+    ollama_base_url: Optional[str] = None
     # Embedding fields removed
 
 
 class APIKeyValidateRequest(BaseModel):
     kind: str  # only "llm" supported now
-    provider: str  # e.g., "openai" or "gemini"
-    api_key: str
-    model_name: str | None = None
+    provider: str  # e.g., "openai", "gemini", or "ollama"
+    api_key: Optional[str] = None
+    model_name: Optional[str] = None
+    ollama_base_url: Optional[str] = None
 
 
 class APIKeyValidateResponse(BaseModel):

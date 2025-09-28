@@ -23,6 +23,7 @@ def get_config(db: Session = Depends(get_db), user: User = Depends(get_current_u
         llm_temperature=cfg.llm_temperature,
         llm_top_p=cfg.llm_top_p,
         llm_max_tokens=cfg.llm_max_tokens,
+        ollama_base_url=cfg.ollama_base_url,
     )
 
 
@@ -38,6 +39,7 @@ def set_config(payload: LLMConfigIn, db: Session = Depends(get_db), user: User =
     cfg.llm_temperature = payload.llm_temperature
     cfg.llm_top_p = payload.llm_top_p
     cfg.llm_max_tokens = payload.llm_max_tokens
+    cfg.ollama_base_url = payload.ollama_base_url
     db.commit()
     return LLMConfigOut(
         llm_provider=cfg.llm_provider,
@@ -45,6 +47,7 @@ def set_config(payload: LLMConfigIn, db: Session = Depends(get_db), user: User =
         llm_temperature=cfg.llm_temperature,
         llm_top_p=cfg.llm_top_p,
         llm_max_tokens=cfg.llm_max_tokens,
+        ollama_base_url=cfg.ollama_base_url,
     )
 
 
@@ -80,6 +83,40 @@ def validate_api_key(payload: APIKeyValidateRequest, user: User = Depends(get_cu
                 
                 # If all URLs failed, return error
                 return APIKeyValidateResponse(valid=False, message=f"Gemini validation failed: Invalid API key or insufficient permissions")
+            elif payload.provider == "ollama":
+                # Validate Ollama by checking if the base URL is accessible and has models
+                if not payload.ollama_base_url:
+                    return APIKeyValidateResponse(valid=False, message="Ollama base URL is required")
+                
+                if not payload.model_name:
+                    return APIKeyValidateResponse(valid=False, message="Model name is required for Ollama")
+                
+                # Test if Ollama server is accessible and model exists
+                try:
+                    # Ensure URL has protocol
+                    base_url = payload.ollama_base_url.strip()
+                    if not base_url.startswith(('http://', 'https://')):
+                        base_url = f"http://{base_url}"
+                    
+                    # Check if Ollama server is running by trying to list models
+                    url = f"{base_url.rstrip('/')}/api/tags"
+                    r = requests.get(url, timeout=10)
+                    if r.status_code == 200:
+                        models = r.json().get('models', [])
+                        model_names = [model.get('name', '') for model in models]
+                        
+                        # Check if the specified model exists
+                        if payload.model_name in model_names:
+                            return APIKeyValidateResponse(valid=True, message=f"Ollama server is accessible and model '{payload.model_name}' is available")
+                        else:
+                            available_models = ', '.join(model_names[:5])  # Show first 5 models
+                            return APIKeyValidateResponse(valid=False, message=f"Model '{payload.model_name}' not found. Available models: {available_models}")
+                    else:
+                        return APIKeyValidateResponse(valid=False, message=f"Ollama server not accessible: {r.status_code}")
+                except requests.exceptions.ConnectionError:
+                    return APIKeyValidateResponse(valid=False, message="Cannot connect to Ollama server. Make sure it's running.")
+                except Exception as e:
+                    return APIKeyValidateResponse(valid=False, message=f"Ollama validation error: {e}")
             else:
                 return APIKeyValidateResponse(valid=False, message="Unsupported LLM provider")
         else:

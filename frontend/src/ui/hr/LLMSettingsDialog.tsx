@@ -23,7 +23,7 @@ import { useAuth } from '../auth/AuthContext'
 
 const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
-type LLMProvider = 'openai' | 'gemini'
+type LLMProvider = 'openai' | 'gemini' | 'ollama'
 
 type Config = {
   // LLM Settings
@@ -33,6 +33,7 @@ type Config = {
   llm_temperature: number
   llm_top_p: number
   llm_max_tokens: number
+  ollama_base_url?: string
 }
 
 const LLM_MODELS = {
@@ -49,6 +50,17 @@ const LLM_MODELS = {
     'gemini-2.5-flash-lite',
     'gemini-2.0-flash',
     'gemini-2.0-flash-lite'
+  ],
+  ollama: [
+    'llama3.2',
+    'llama3.1',
+    'llama3',
+    'llama2',
+    'mistral',
+    'codellama',
+    'phi3',
+    'qwen',
+    'gemma'
   ]
 }
 
@@ -68,7 +80,8 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
     llm_model_name: 'gpt-4o-mini', 
     llm_temperature: 0.2, 
     llm_top_p: 1, 
-    llm_max_tokens: 1024
+    llm_max_tokens: 1024,
+    ollama_base_url: ''
   })
   const headers = { Authorization: `Bearer ${token}` }
   const [noti, setNoti] = useState<{open: boolean; message: string; severity: 'success' | 'error' | 'info' }>({ open: false, message: '', severity: 'info' })
@@ -93,6 +106,7 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
         provider: cfg.llm_provider,
         api_key: cfg.llm_api_key,
         model_name: cfg.llm_model_name,
+        ollama_base_url: cfg.ollama_base_url,
       }
       const { data } = await axios.post(`${API}/llm/validate-api-key`, payload, { headers })
       setNoti({ open: true, message: data.message, severity: data.valid ? 'success' : 'error' })
@@ -107,15 +121,53 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
 
   const save = async () => {
     try {
+      // Validate required fields for Ollama
+      if (cfg.llm_provider === 'ollama') {
+        if (!cfg.ollama_base_url?.trim()) {
+          setNoti({ open: true, message: 'Ollama base URL is required', severity: 'error' })
+          return
+        }
+        if (!cfg.llm_model_name?.trim()) {
+          setNoti({ open: true, message: 'Model name is required for Ollama', severity: 'error' })
+          return
+        }
+      }
+      
       // Validate LLM key first
       const llmOk = await validateKey('llm')
       if (!llmOk) return
+      
+      // Save configuration
       if (onSave) {
         await onSave(cfg)
       } else {
         await axios.post(`${API}/llm/config`, cfg, { headers })
       }
-      setNoti({ open: true, message: 'Configuration saved successfully', severity: 'success' })
+      
+      // Test the LLM configuration after saving
+      setNoti({ open: true, message: 'Configuration saved. Testing LLM connection...', severity: 'info' })
+      
+      try {
+        // Test the LLM by making a simple request
+        const testPayload = {
+          cv_text: "Test CV: Software Engineer with 5 years experience in Python and React.",
+          jd_text: "Test JD: Looking for a Software Engineer with Python and React experience."
+        }
+        
+        const testResponse = await axios.post(`${API}/match/single`, testPayload, { headers })
+        
+        if (testResponse.data && typeof testResponse.data.score === 'number') {
+          setNoti({ open: true, message: 'Configuration saved and LLM test successful!', severity: 'success' })
+        } else {
+          console.error('LLM test response:', testResponse.data)
+          setNoti({ open: true, message: 'Configuration saved but LLM test failed. Please check your settings.', severity: 'error' })
+        }
+      } catch (testError: any) {
+        console.error('LLM test failed:', testError)
+        const errorMessage = testError?.response?.data?.detail || testError?.message || 'Unknown error'
+        setNoti({ open: true, message: `Configuration saved but LLM test failed: ${errorMessage}`, severity: 'error' })
+      }
+      
       onClose()
     } catch (error) {
       console.error('Failed to save config:', error)
@@ -127,7 +179,7 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
     setCfg({
       ...cfg,
       llm_provider: provider,
-      llm_model_name: LLM_MODELS[provider][0]
+      llm_model_name: provider === 'ollama' ? '' : LLM_MODELS[provider][0]
     })
   }
 
@@ -163,28 +215,51 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
                 >
                   <MenuItem value="openai">OpenAI (GPT)</MenuItem>
                   <MenuItem value="gemini">Google Gemini</MenuItem>
+                  <MenuItem value="ollama">Ollama (Local)</MenuItem>
                 </TextField>
                 
-                <TextField 
-                  label="API Key" 
-                  type="password" 
-                  value={cfg.llm_api_key} 
-                  onChange={e => setCfg({ ...cfg, llm_api_key: e.target.value })} 
-                  fullWidth 
-                  placeholder={`Enter your ${cfg.llm_provider.toUpperCase()} API key`}
-                />
+                {cfg.llm_provider === 'ollama' ? (
+                  <TextField 
+                    label="Ollama Base URL" 
+                    value={cfg.ollama_base_url || ''} 
+                    onChange={e => setCfg({ ...cfg, ollama_base_url: e.target.value })} 
+                    fullWidth 
+                    placeholder="127.0.0.1:11434 or http://localhost:11434"
+                    helperText="URL where your Ollama server is running (http:// will be added automatically if missing)"
+                  />
+                ) : (
+                  <TextField 
+                    label="API Key" 
+                    type="password" 
+                    value={cfg.llm_api_key} 
+                    onChange={e => setCfg({ ...cfg, llm_api_key: e.target.value })} 
+                    fullWidth 
+                    placeholder={`Enter your ${cfg.llm_provider.toUpperCase()} API key`}
+                  />
+                )}
                 
-                <TextField 
-                  select 
-                  label="Model" 
-                  value={cfg.llm_model_name} 
-                  onChange={e => setCfg({ ...cfg, llm_model_name: e.target.value })} 
-                  fullWidth
-                >
-                  {LLM_MODELS[cfg.llm_provider].map(model => (
-                    <MenuItem key={model} value={model}>{model}</MenuItem>
-                  ))}
-                </TextField>
+                {cfg.llm_provider === 'ollama' ? (
+                  <TextField 
+                    label="Model Name" 
+                    value={cfg.llm_model_name} 
+                    onChange={e => setCfg({ ...cfg, llm_model_name: e.target.value })} 
+                    fullWidth
+                    placeholder="llama3.2, mistral, codellama, etc."
+                    helperText="Enter the exact model name as it appears in 'ollama list'"
+                  />
+                ) : (
+                  <TextField 
+                    select 
+                    label="Model" 
+                    value={cfg.llm_model_name} 
+                    onChange={e => setCfg({ ...cfg, llm_model_name: e.target.value })} 
+                    fullWidth
+                  >
+                    {LLM_MODELS[cfg.llm_provider].map(model => (
+                      <MenuItem key={model} value={model}>{model}</MenuItem>
+                    ))}
+                  </TextField>
+                )}
                 
                 <Stack direction="row" spacing={2}>
                   <TextField 

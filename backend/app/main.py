@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
+from sqlalchemy import text
 from dotenv import load_dotenv
 from .db import Base, engine
 from .routers_auth import router as auth_router
@@ -16,6 +17,39 @@ from .routers_evaluation import router as evaluation_router
 def create_app() -> FastAPI:
     load_dotenv()
     Base.metadata.create_all(bind=engine)
+
+    # Startup migration: ensure new columns exist without manual scripts
+    try:
+        with engine.connect() as conn:
+            # Ensure enum 'llmprovider' contains value 'ollama'
+            try:
+                exists = conn.execute(
+                    text(
+                        """
+                        SELECT 1 FROM pg_type t
+                        JOIN pg_enum e ON t.oid = e.enumtypid
+                        WHERE t.typname = 'llmprovider' AND e.enumlabel = 'ollama'
+                        """
+                    )
+                ).first()
+                if not exists:
+                    # Add enum value if missing
+                    conn.execute(text("ALTER TYPE llmprovider ADD VALUE 'ollama'"))
+            except Exception:
+                pass
+
+            conn.execute(
+                text(
+                    """
+                    ALTER TABLE llm_configs
+                    ADD COLUMN IF NOT EXISTS ollama_base_url VARCHAR(512)
+                    """
+                )
+            )
+            conn.commit()
+    except Exception:
+        # Do not block app startup on migration errors
+        pass
 
     app = FastAPI(title="CV Match API")
     app.add_middleware(

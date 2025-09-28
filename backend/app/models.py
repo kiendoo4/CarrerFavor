@@ -59,6 +59,7 @@ class CV(Base):
 class LLMProvider(str, enum.Enum):
     openai = "openai"
     gemini = "gemini"
+    ollama = "ollama"
 
 
 class EmbeddingProvider(str, enum.Enum):
@@ -79,6 +80,7 @@ class LLMConfig(Base):
     llm_temperature = Column(Float, nullable=False, default=0.2)
     llm_top_p = Column(Float, nullable=False, default=1.0)
     llm_max_tokens = Column(Integer, nullable=False, default=1024)
+    ollama_base_url = Column(String(512), nullable=True)
     # Embedding settings
     embedding_provider = Column(Enum(EmbeddingProvider), nullable=False, default=EmbeddingProvider.local)
     embedding_api_key = Column(String(2048), nullable=True)

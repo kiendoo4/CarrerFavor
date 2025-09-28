@@ -33,13 +33,14 @@ def match_single(
     
     # Use user's LLM config so the agent has a valid key
     llm_config = db.query(LLMConfig).filter(LLMConfig.user_id == user.id).first()
-    if llm_config and llm_config.llm_api_key:
+    if llm_config and (llm_config.llm_api_key or llm_config.ollama_base_url):
         score = compute_similarity_score(
             anonymized_cv_text,
             anonymized_jd_text,
             llm_provider=str(llm_config.llm_provider.value if hasattr(llm_config.llm_provider, 'value') else llm_config.llm_provider),
             llm_model_name=llm_config.llm_model_name,
             api_key=llm_config.llm_api_key,
+            ollama_base_url=llm_config.ollama_base_url,
         )
     else:
         score = compute_similarity_score(anonymized_cv_text, anonymized_jd_text)
@@ -155,13 +156,14 @@ def match_hr(
         anonymized_cv_text = analyze_and_anonymize(cv_text)
         
         # Use agent-based structured scoring, configured by user's LLM settings if available
-        if llm_config and llm_config.llm_api_key:
+        if llm_config and (llm_config.llm_api_key or llm_config.ollama_base_url):
             detailed_scores = compute_similarity_score_detailed(
                 anonymized_cv_text,
                 anonymized_jd_text,
                 llm_provider=str(llm_config.llm_provider.value if hasattr(llm_config.llm_provider, 'value') else llm_config.llm_provider),
                 llm_model_name=llm_config.llm_model_name,
                 api_key=llm_config.llm_api_key,
+                ollama_base_url=llm_config.ollama_base_url,
             )
         else:
             detailed_scores = compute_similarity_score_detailed(anonymized_cv_text, anonymized_jd_text)

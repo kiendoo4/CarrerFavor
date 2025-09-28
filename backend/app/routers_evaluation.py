@@ -165,13 +165,14 @@ async def start_evaluation(
                     # Import here to avoid circular imports
                     from .adk_agent.agent import run_resume_scoring_agent
                     
-                    if llm_config and llm_config.llm_api_key:
+                    if llm_config and (llm_config.llm_api_key or llm_config.ollama_base_url):
                         result = await run_resume_scoring_agent(
                             anonymized_cv,
                             anonymized_jd,
                             llm_provider=str(llm_config.llm_provider.value if hasattr(llm_config.llm_provider, 'value') else llm_config.llm_provider),
                             llm_model_name=llm_config.llm_model_name,
                             api_key=llm_config.llm_api_key,
+                            ollama_base_url=llm_config.ollama_base_url,
                         )
                     else:
                         result = await run_resume_scoring_agent(anonymized_cv, anonymized_jd)
