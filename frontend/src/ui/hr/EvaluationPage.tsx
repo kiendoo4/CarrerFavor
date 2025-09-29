@@ -635,36 +635,10 @@ export const EvaluationPage: React.FC = () => {
 
                       {matchingMethod === 'description' && (
                         <Box>
-                          <Typography variant="body2" color="text.secondary">
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                             Define rules for each label to evaluate matching effectiveness:
                           </Typography>
-                        </Box>
-                      )}
-                    </Stack>
-                  </Paper>
-                </CardContent>
-              </Card>
-            </Grid>
-          )}
-
-          {/* CV-JD Matching Rules - Only show for description method */}
-          {labelInfo.length > 0 && matchingMethod === 'description' && (
-            <Grid item xs={12}>
-              <Card>
-                <CardContent>
-                  <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 3 }}>
-                    <Label color="warning" />
-                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                      Label Rules
-                    </Typography>
-                  </Stack>
-
-                  <Paper sx={{ p: 3, bgcolor: alpha(theme.palette.warning.main, 0.05) }}>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                      Define rules for each label to evaluate matching effectiveness:
-                    </Typography>
-                    
-                    <Stack spacing={3}>
+                          <Stack spacing={3}>
                       {labelInfo.map((label, index) => (
                         <Box key={index}>
                           <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 1 }}>
@@ -687,6 +661,9 @@ export const EvaluationPage: React.FC = () => {
                           />
                         </Box>
                       ))}
+                    </Stack>
+                        </Box>
+                      )}
                     </Stack>
                   </Paper>
                 </CardContent>
