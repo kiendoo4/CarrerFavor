@@ -200,7 +200,7 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
             <AccordionSummary expandIcon={<ExpandMore />}>
               <Stack direction="row" alignItems="center" spacing={1}>
                 <Psychology color="secondary" />
-                <Typography variant="h6">LLM Settings</Typography>
+                <Typography variant="h6">AI Model Configuration</Typography>
                 <Chip label="For CV Matching" size="small" color="secondary" variant="outlined" />
               </Stack>
             </AccordionSummary>
@@ -261,34 +261,17 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
                   </TextField>
                 )}
                 
-                <Stack direction="row" spacing={2}>
+                {cfg.llm_provider !== 'gemini' && (
                   <TextField 
-                    label="Temperature" 
+                    label="Max Tokens" 
                     type="number" 
-                    value={cfg.llm_temperature} 
-                    onChange={e => setCfg({ ...cfg, llm_temperature: Number(e.target.value) })} 
-                    inputProps={{ min: 0, max: 2, step: 0.1 }}
-                    helperText="0-2, lower = more focused"
+                    value={cfg.llm_max_tokens} 
+                    onChange={e => setCfg({ ...cfg, llm_max_tokens: Number(e.target.value) })} 
+                    inputProps={{ min: 100, max: 4000, step: 100 }}
+                    helperText="Output length limit"
+                    fullWidth
                   />
-                  <TextField 
-                    label="Top P" 
-                    type="number" 
-                    value={cfg.llm_top_p} 
-                    onChange={e => setCfg({ ...cfg, llm_top_p: Number(e.target.value) })} 
-                    inputProps={{ min: 0, max: 1, step: 0.1 }}
-                    helperText="0-1, controls diversity"
-                  />
-                  {cfg.llm_provider !== 'gemini' && (
-                    <TextField 
-                      label="Max Tokens" 
-                      type="number" 
-                      value={cfg.llm_max_tokens} 
-                      onChange={e => setCfg({ ...cfg, llm_max_tokens: Number(e.target.value) })} 
-                      inputProps={{ min: 100, max: 4000, step: 100 }}
-                      helperText="Output length limit"
-                    />
-                  )}
-                </Stack>
+                )}
               </Stack>
             </AccordionDetails>
           </Accordion>

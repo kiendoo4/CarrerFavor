@@ -1,0 +1,39 @@
+% CV Enhancement Template
+% This template will be used to generate enhanced CVs based on LLM suggestions
+
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+
+\title{\textbf{CV_NAME}}
+\author{CV_EMAIL}
+\date{CV_PHONE}
+
+\begin{document}
+
+\maketitle
+
+\section*{Professional Summary}
+CV_SUMMARY
+
+\section*{Technical Skills}
+\begin{itemize}[leftmargin=*]
+CV_SKILLS
+\end{itemize}
+
+\section*{Work Experience}
+CV_EXPERIENCE
+
+\section*{Education}
+CV_EDUCATION
+
+\section*{Projects}
+CV_PROJECTS
+
+\section*{Additional Information}
+CV_ADDITIONAL
+
+\end{document}

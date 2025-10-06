@@ -557,21 +557,23 @@ export const CVManagementPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>
-        CV Collections Management
-      </Typography>
-      
-      <Typography variant="body1" color="text.secondary" paragraph>
-        Organize and manage your CVs into collections for better organization
-      </Typography>
+      {/* Header Section */}
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" gutterBottom sx={{ fontWeight: 700 }}>
+          CV Collections Management
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          Organize and manage your CVs into collections for better organization
+        </Typography>
+      </Box>
 
       <Box sx={{ 
         mb: 4, 
-        background: 'white',
-        border: `2px solid ${theme.palette.secondary.main}`,
+        background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)} 0%, ${alpha(theme.palette.secondary.main, 0.05)} 100%)`,
+        border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
         borderRadius: 3,
         p: 4,
-        boxShadow: `0 4px 12px ${alpha(theme.palette.secondary.main, 0.15)}`
+        boxShadow: `0 4px 20px ${alpha(theme.palette.primary.main, 0.1)}`
       }}>
         {/* Enhanced Stats Cards */}
         <Grid container spacing={3}>
@@ -694,14 +696,14 @@ export const CVManagementPage: React.FC = () => {
           
           <Grid item xs={12} sm={6} md={3}>
             <Card sx={{ 
-              background: `linear-gradient(135deg, ${alpha(theme.palette.warning.main, 0.12)} 0%, ${alpha(theme.palette.warning.main, 0.06)} 100%)`,
-              border: `1px solid ${alpha(theme.palette.warning.main, 0.25)}`,
+              background: `linear-gradient(135deg, ${alpha(theme.palette.info.main, 0.12)} 0%, ${alpha(theme.palette.info.main, 0.06)} 100%)`,
+              border: `1px solid ${alpha(theme.palette.info.main, 0.25)}`,
               borderRadius: 3,
               transition: 'all 0.3s ease-in-out',
               '&:hover': {
                 transform: 'translateY(-4px)',
-                boxShadow: `0 8px 25px ${alpha(theme.palette.warning.main, 0.15)}`,
-                border: `1px solid ${theme.palette.warning.main}`,
+                boxShadow: `0 8px 25px ${alpha(theme.palette.info.main, 0.15)}`,
+                border: `1px solid ${theme.palette.info.main}`,
               }
             }}>
               <CardContent sx={{ textAlign: 'center', py: 3 }}>
@@ -712,25 +714,64 @@ export const CVManagementPage: React.FC = () => {
                   width: 56,
                   height: 56,
                   borderRadius: '50%',
-                  bgcolor: alpha(theme.palette.warning.main, 0.15),
+                  bgcolor: alpha(theme.palette.info.main, 0.15),
                   mb: 2
                 }}>
-                  <TrendingUpIcon sx={{ fontSize: 28, color: theme.palette.warning.main }} />
+                  <ScheduleIcon sx={{ fontSize: 28, color: theme.palette.info.main }} />
                 </Box>
                 <Typography variant="h4" sx={{ 
                   fontWeight: 700, 
-                  color: theme.palette.warning.main,
+                  color: theme.palette.info.main,
                   mb: 1
                 }}>
-                  {Math.round((collections.filter(c => c.cv_count > 0).length / Math.max(collections.length, 1)) * 100)}%
+                  {collections.length > 0 ? 
+                    Math.round(collections.reduce((sum, c) => sum + c.cv_count, 0) / collections.length) : 0
+                  }
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
-                  Utilization Rate
+                  Avg CVs/Collection
                 </Typography>
               </CardContent>
             </Card>
           </Grid>
         </Grid>
+      </Box>
+
+      {/* Create Collection Button - Outside Dashboard Box */}
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        mb: 4
+      }}>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => {
+            setEditingCollection(null);
+            setCollectionForm({ name: '', description: '' });
+            setShowCollectionDialog(true);
+          }}
+          sx={{
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            borderRadius: 3,
+            px: 4,
+            py: 1.5,
+            boxShadow: '0 8px 32px rgba(102, 126, 234, 0.4)',
+            '&:hover': {
+              background: 'linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%)',
+              transform: 'translateY(-2px)',
+              boxShadow: '0 12px 40px rgba(102, 126, 234, 0.6)',
+            },
+            transition: 'all 0.3s ease',
+            fontWeight: 600,
+            textTransform: 'none',
+            fontSize: '0.95rem',
+            minWidth: 180
+          }}
+        >
+          Create Collection
+        </Button>
       </Box>
 
       {/* Enhanced Notifications */}
@@ -903,32 +944,6 @@ export const CVManagementPage: React.FC = () => {
             </Grid>
           )}
 
-          {/* Enhanced Create Collection FAB */}
-          <Zoom in timeout={500}>
-            <Fab
-              color="primary"
-              aria-label="add collection"
-              onClick={() => {
-                setEditingCollection(null);
-                setCollectionForm({ name: '', description: '' });
-                setShowCollectionDialog(true);
-              }}
-              sx={{
-                position: 'fixed',
-                bottom: 24,
-                right: 24,
-                background: `linear-gradient(45deg, ${theme.palette.primary.main} 30%, ${theme.palette.secondary.main} 90%)`,
-                boxShadow: theme.shadows[8],
-                '&:hover': {
-                  background: `linear-gradient(45deg, ${theme.palette.primary.dark} 30%, ${theme.palette.secondary.dark} 90%)`,
-                  transform: 'scale(1.1)',
-                },
-                transition: 'all 0.3s ease-in-out'
-              }}
-            >
-              <AddIcon />
-            </Fab>
-          </Zoom>
         </>
       ) : (
         <>
@@ -1501,6 +1516,7 @@ export const CVManagementPage: React.FC = () => {
           )}
         </DialogActions>
       </Dialog>
+
     </Box>
   );
 };

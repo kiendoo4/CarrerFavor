@@ -49,6 +49,13 @@ services:
     ports:
       - "3001:3000"
 
+  latex:
+    image: texlive/texlive:latest-full
+    container_name: ragflow-latex
+    volumes:
+      - ../latex:/latex
+    working_dir: /latex
+
 volumes:
   postgres_data:
   minio_data:

@@ -12,7 +12,11 @@ from .text_extract import sniff_and_extract_text
 from .tika_client import extract_text_via_tika
 from .scoring import compute_similarity_score, compute_similarity_score_detailed
 from .models import LLMConfig
-from .presidio_client import analyze_and_anonymize
+from .adk_agent.agent import run_resume_scoring_agent
+from .models import LLMConfig
+from .cv_enhancement import generate_enhanced_cv_pdf
+# Presidio anonymization disabled
+# from .presidio_client import analyze_and_anonymize
 
 
 router = APIRouter(prefix="/match", tags=["match"])
@@ -27,9 +31,9 @@ def match_single(
     if not payload.cv_text or not payload.jd_text:
         raise HTTPException(status_code=400, detail="cv_text and jd_text are required")
     
-    # Anonymize both CV and JD text before scoring
-    anonymized_cv_text = analyze_and_anonymize(payload.cv_text)
-    anonymized_jd_text = analyze_and_anonymize(payload.jd_text)
+    # Use raw texts directly (anonymization disabled)
+    anonymized_cv_text = payload.cv_text
+    anonymized_jd_text = payload.jd_text
     
     # Use user's LLM config so the agent has a valid key
     llm_config = db.query(LLMConfig).filter(LLMConfig.user_id == user.id).first()
@@ -47,6 +51,68 @@ def match_single(
     return MatchScore(score=score)
 
 
+@router.post("/single_detailed")
+async def match_single_detailed(
+    payload: MatchRequestSingle,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not payload.cv_text or not payload.jd_text:
+        raise HTTPException(status_code=400, detail="cv_text and jd_text are required")
+
+    anonymized_cv_text = payload.cv_text
+    anonymized_jd_text = payload.jd_text
+
+    llm_config = db.query(LLMConfig).filter(LLMConfig.user_id == user.id).first()
+    if llm_config and (llm_config.llm_api_key or llm_config.ollama_base_url):
+        result = await run_resume_scoring_agent(
+            anonymized_cv_text,
+            anonymized_jd_text,
+            llm_provider=str(llm_config.llm_provider.value if hasattr(llm_config.llm_provider, 'value') else llm_config.llm_provider),
+            llm_model_name=llm_config.llm_model_name,
+            api_key=llm_config.llm_api_key,
+            ollama_base_url=llm_config.ollama_base_url,
+        )
+    else:
+        result = await run_resume_scoring_agent(anonymized_cv_text, anonymized_jd_text)
+
+    # result contains score breakdown and may contain analysis
+    return result
+
+
+@router.post("/enhance-cv")
+async def enhance_cv(
+    payload: MatchRequestSingle,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Generate enhanced CV PDF based on analysis suggestions"""
+    if not payload.cv_text or not payload.jd_text:
+        raise HTTPException(status_code=400, detail="cv_text and jd_text are required")
+
+    # Get user's LLM config
+    llm_config = db.query(LLMConfig).filter(LLMConfig.user_id == user.id).first()
+    
+    try:
+        pdf_content = await generate_enhanced_cv_pdf(
+            payload.cv_text,
+            payload.jd_text,
+            llm_provider=str(llm_config.llm_provider.value if hasattr(llm_config.llm_provider, 'value') else llm_config.llm_provider) if llm_config else None,
+            llm_model_name=llm_config.llm_model_name if llm_config else None,
+            api_key=llm_config.llm_api_key if llm_config else None,
+            ollama_base_url=llm_config.ollama_base_url if llm_config else None,
+        )
+        
+        from fastapi.responses import Response
+        return Response(
+            content=pdf_content,
+            media_type="application/pdf",
+            headers={"Content-Disposition": "attachment; filename=enhanced_cv.pdf"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate enhanced CV: {str(e)}")
+
+
 @router.post("/single-file", response_model=MatchScore)
 def match_single_file(
     cv_file: UploadFile = File(...),
@@ -56,9 +122,9 @@ def match_single_file(
     cv_text = _read_upload_to_text(cv_file)
     jd_text = _read_upload_to_text(jd_file)
     
-    # Anonymize both texts before scoring
-    anonymized_cv_text = analyze_and_anonymize(cv_text)
-    anonymized_jd_text = analyze_and_anonymize(jd_text)
+    # Use raw texts directly (anonymization disabled)
+    anonymized_cv_text = cv_text
+    anonymized_jd_text = jd_text
     
     score = compute_similarity_score(anonymized_cv_text, anonymized_jd_text)
     return MatchScore(score=score)
@@ -143,17 +209,17 @@ def match_hr(
     llm_config = db.query(LLMConfig).filter(LLMConfig.user_id == user.id).first()
     results = []
     
-    # Anonymize JD text once
-    anonymized_jd_text = analyze_and_anonymize(payload.jd_text)
+    # Use raw JD text (anonymization disabled)
+    anonymized_jd_text = payload.jd_text
     
     for cv_id in payload.cv_ids:
         cv = id_to_cv.get(cv_id)
         if not cv:
             continue
             
-        # Extract CV text from file and anonymize it
+        # Extract CV text from file
         cv_text = _extract_cv_text_from_file(cv)
-        anonymized_cv_text = analyze_and_anonymize(cv_text)
+        anonymized_cv_text = cv_text
         
         # Use agent-based structured scoring, configured by user's LLM settings if available
         if llm_config and (llm_config.llm_api_key or llm_config.ollama_base_url):

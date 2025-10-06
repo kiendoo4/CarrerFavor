@@ -36,7 +36,11 @@ import {
   Work,
   TrendingUp,
   Folder,
-  ExpandMore
+  ExpandMore,
+  Add as AddIcon,
+  FolderOpen as FolderOpenIcon,
+  Description as DescriptionIcon,
+  Analytics as AnalyticsIcon
 } from '@mui/icons-material'
 import { LLMSettingsDialog } from './LLMSettingsDialog'
 import { useNavigate } from 'react-router-dom'
@@ -60,6 +64,7 @@ export const HRPage: React.FC = () => {
   const navigate = useNavigate()
   const [jdText, setJdText] = useState('')
   const [cvs, setCvs] = useState<CVRow[]>([])
+  const [collections, setCollections] = useState<any[]>([])
   const [results, setResults] = useState<HRResult[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -121,7 +126,17 @@ export const HRPage: React.FC = () => {
 
   useEffect(() => {
     loadCVs()
+    loadCollections()
   }, [])
+
+  const loadCollections = async () => {
+    try {
+      const { data } = await axios.get(`${API}/matching/collections`, { headers })
+      setCollections(data || [])
+    } catch (e) {
+      console.error('Failed to load collections:', e)
+    }
+  }
 
   if (user?.role !== 'hr') {
     return <Alert severity="warning">This feature is only available for HR accounts.</Alert>
@@ -130,6 +145,142 @@ export const HRPage: React.FC = () => {
   return (
     <>
       <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
+        {/* Dashboard Stats */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card sx={{ 
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box>
+                    <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
+                      {collections.length}
+                    </Typography>
+                    <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                      Collections
+                    </Typography>
+                  </Box>
+                  <FolderOpenIcon sx={{ fontSize: 40, opacity: 0.3 }} />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+          
+          <Grid item xs={12} sm={6} md={3}>
+            <Card sx={{ 
+              background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+              color: 'white',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box>
+                    <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
+                      {cvs.length}
+                    </Typography>
+                    <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                      Total CVs
+                    </Typography>
+                  </Box>
+                  <DescriptionIcon sx={{ fontSize: 40, opacity: 0.3 }} />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+          
+          <Grid item xs={12} sm={6} md={3}>
+            <Card sx={{ 
+              background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+              color: 'white',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box>
+                    <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
+                      {collections.filter(c => c.cv_count > 0).length}
+                    </Typography>
+                    <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                      Active Collections
+                    </Typography>
+                  </Box>
+                  <AnalyticsIcon sx={{ fontSize: 40, opacity: 0.3 }} />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+          
+          <Grid item xs={12} sm={6} md={3}>
+            <Card sx={{ 
+              background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+              color: 'white',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box>
+                    <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
+                      {results?.length || 0}
+                    </Typography>
+                    <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                      Recent Matches
+                    </Typography>
+                  </Box>
+                  <TrendingUp sx={{ fontSize: 40, opacity: 0.3 }} />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+
+        {/* Quick Actions */}
+        <Box sx={{ mb: 4 }}>
+          <Card sx={{ 
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            position: 'relative',
+            overflow: 'hidden'
+          }}>
+            <CardContent>
+              <Stack direction="row" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                    Quick Actions
+                  </Typography>
+                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                    Manage your CV collections and run matching
+                  </Typography>
+                </Box>
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  sx={{
+                    bgcolor: 'rgba(255,255,255,0.2)',
+                    color: 'white',
+                    '&:hover': {
+                      bgcolor: 'rgba(255,255,255,0.3)',
+                    },
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    borderRadius: 2,
+                    px: 3,
+                    py: 1.5
+                  }}
+                >
+                  Create New Collection
+                </Button>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Box>
+
         <Box sx={{ mb: 4 }}>
           <Stack direction="row" alignItems="center" justifyContent="space-between">
             <Box>
@@ -468,7 +619,7 @@ export const HRPage: React.FC = () => {
                 <Accordion>
                   <AccordionSummary expandIcon={<ExpandMore />}>
                     <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                      Anonymized CV Content
+                      CV Content
                     </Typography>
                   </AccordionSummary>
                   <AccordionDetails>
@@ -494,7 +645,7 @@ export const HRPage: React.FC = () => {
                 <Accordion>
                   <AccordionSummary expandIcon={<ExpandMore />}>
                     <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                      Anonymized Job Description
+                      Job Description
                     </Typography>
                   </AccordionSummary>
                   <AccordionDetails>

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 from .models import UserRole, LLMProvider
 
@@ -119,7 +119,8 @@ class HRMatchItem(BaseModel):
     score: float
     anonymized_cv_text: Optional[str] = None
     anonymized_jd_text: Optional[str] = None
-    detailed_scores: Optional[Dict[str, float]] = None
+    # Allow nested objects (e.g., analysis) in detailed_scores
+    detailed_scores: Optional[Dict[str, Any]] = None
 
 
 class HRMatchResponse(BaseModel):

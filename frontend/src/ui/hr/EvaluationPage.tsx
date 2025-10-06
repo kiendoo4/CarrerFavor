@@ -48,9 +48,11 @@ import {
   Error as ErrorIcon,
   Info as InfoIcon,
   Close,
-  PlayArrow
+  PlayArrow,
+  Download
 } from '@mui/icons-material'
 import { useAuth } from '../auth/AuthContext'
+import { useAppState } from '../context/AppStateContext'
 import axios from 'axios'
 
 const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
@@ -92,6 +94,7 @@ type MatchingMethod = 'threshold' | 'description'
 
 export const EvaluationPage: React.FC = () => {
   const { token, user } = useAuth()
+  const { evaluationResults, setEvaluationResults, showEvaluationResults, setShowEvaluationResults } = useAppState()
   const theme = useTheme()
   
   // State management
@@ -115,8 +118,6 @@ export const EvaluationPage: React.FC = () => {
   // New state for matching methods
   const [matchingMethod, setMatchingMethod] = useState<MatchingMethod>('threshold')
   const [labelThresholds, setLabelThresholds] = useState<{[label: string]: {match: number, noMatch: number}}>({})
-  const [evaluationResults, setEvaluationResults] = useState<EvaluationResult[]>([])
-  const [showResults, setShowResults] = useState(false)
 
   const headers = { Authorization: `Bearer ${token}` }
 
@@ -281,7 +282,7 @@ export const EvaluationPage: React.FC = () => {
       // Handle results based on method
       if (response.data.results) {
         setEvaluationResults(response.data.results)
-        setShowResults(true)
+        setShowEvaluationResults(true)
         if (matchingMethod === 'threshold') {
           setSuccess('Threshold-based evaluation completed!')
         } else {
@@ -334,6 +335,50 @@ export const EvaluationPage: React.FC = () => {
     
     return false
   }
+
+  // Export evaluation results to CSV
+  const exportToCSV = () => {
+    if (!evaluationResults || evaluationResults.length === 0) {
+      setError('No results to export');
+      return;
+    }
+
+    // Create CSV content
+    const headers = [
+      'CV Text',
+      'JD Text', 
+      'Expected Label',
+      'Predicted Label',
+      'Score',
+      'Match Status'
+    ];
+
+    const csvContent = [
+      headers.join(','),
+      ...evaluationResults.map(result => {
+        const matchStatus = result.expectedLabel === result.predictedLabel ? 'Match' : 'Mismatch';
+        return [
+          `"${result.cv.replace(/"/g, '""')}"`,
+          `"${result.jd.replace(/"/g, '""')}"`,
+          `"${result.expectedLabel}"`,
+          `"${result.predictedLabel}"`,
+          result.score ? result.score.toFixed(3) : 'N/A',
+          `"${matchStatus}"`
+        ].join(',');
+      })
+    ].join('\n');
+
+    // Create and download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `evaluation_results_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   if (user?.role !== 'hr') {
     return <Alert severity="warning">This feature is only available for HR accounts.</Alert>
@@ -698,16 +743,16 @@ export const EvaluationPage: React.FC = () => {
           </Grid>
 
           {/* Evaluation Results Table */}
-          {showResults && evaluationResults.length > 0 && (
+          {showEvaluationResults && evaluationResults && evaluationResults.length > 0 && (
             <Grid item xs={12}>
               <Card>
                 <CardContent>
                   <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 3 }}>
-                  <Analytics color="success" />
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    Evaluation Results
-                  </Typography>
-                </Stack>
+                    <Analytics color="success" />
+                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                      Evaluation Results
+                    </Typography>
+                  </Stack>
 
                   <TableContainer component={Paper} sx={{ maxHeight: 600 }}>
                     <Table stickyHeader>
@@ -823,13 +868,32 @@ export const EvaluationPage: React.FC = () => {
                     <Typography variant="body2" color="text.secondary">
                       Showing {evaluationResults.length} results
                     </Typography>
-                    <Button
-                      variant="outlined"
-                      onClick={() => setShowResults(false)}
-                      size="small"
-                    >
-                      Close Results
-                    </Button>
+                    <Stack direction="row" spacing={1}>
+                      <Button
+                        variant="contained"
+                        startIcon={<Download />}
+                        onClick={exportToCSV}
+                        size="small"
+                        sx={{
+                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                          color: 'white',
+                          '&:hover': {
+                            background: 'linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%)',
+                          },
+                          textTransform: 'none',
+                          fontWeight: 600
+                        }}
+                      >
+                        Export CSV
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        onClick={() => setShowEvaluationResults(false)}
+                        size="small"
+                      >
+                        Close Results
+                      </Button>
+                    </Stack>
                   </Box>
                 </CardContent>
               </Card>

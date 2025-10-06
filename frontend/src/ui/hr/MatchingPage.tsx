@@ -39,7 +39,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Paper
+  Paper,
+  TableCell
 } from '@mui/material';
 import {
   Info as InfoIcon,
@@ -48,9 +49,197 @@ import {
   Description as DescriptionIcon,
   CheckCircle as CheckCircleIcon,
   TrendingUp as TrendingUpIcon,
-  CloudUpload
+  CloudUpload,
+  AutoFixHigh as AutoFixHighIcon,
+  FileDownload as FileDownloadIcon
 } from '@mui/icons-material';
 import { useAuth } from '../auth/AuthContext';
+import { useAppState } from '../context/AppStateContext';
+import * as docx from 'docx-preview';
+
+// File Viewer Component for CV viewing (same as CV Management)
+const FileViewer: React.FC<{ cv: CV; token: string | null }> = ({ cv, token }) => {
+  const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+  const [fileError, setFileError] = React.useState<string | null>(null);
+  const viewerRef = React.useRef<HTMLDivElement | null>(null);
+  const [loadingDocx, setLoadingDocx] = React.useState(false);
+  const [anonOpen, setAnonOpen] = React.useState(false);
+  const [anonLoading, setAnonLoading] = React.useState(false);
+  const [anonText, setAnonText] = React.useState('');
+  
+  const fetchAnonymized = async () => {
+    try {
+      setAnonLoading(true);
+      const res = await fetch(`${API}/cv/${cv.id}/content/anonymized`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setAnonText(data.content || '');
+      setAnonOpen(true);
+    } catch (e) {
+      setAnonText('Failed to fetch anonymized content');
+      setAnonOpen(true);
+    } finally {
+      setAnonLoading(false);
+    }
+  };
+
+  // For PDF files, try to use iframe
+  if (cv.filename.toLowerCase().endsWith('.pdf')) {
+    return (
+      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ p: 1, bgcolor: 'grey.100', borderBottom: '1px solid', borderColor: 'grey.300', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="caption" color="text.secondary">
+            PDF Viewer (if available)
+          </Typography>
+          <Box sx={{ ml: 'auto' }}>
+            <Button size="small" variant="outlined" onClick={fetchAnonymized} disabled={anonLoading}>
+              {anonLoading ? 'Loading...' : 'View anonymized text'}
+            </Button>
+          </Box>
+        </Box>
+        <Box sx={{ flex: 1, position: 'relative' }}>
+          <iframe
+            src={`${API}/cv/${cv.id}/view`}
+            style={{
+              width: '100%',
+              height: '100%',
+              border: 'none'
+            }}
+            title={cv.filename}
+            onError={() => setFileError('Failed to load PDF file')}
+          />
+          {fileError && (
+            <Box sx={{ 
+              position: 'absolute', 
+              top: 0, 
+              left: 0, 
+              right: 0, 
+              bottom: 0, 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              bgcolor: 'background.paper'
+            }}>
+              <Box sx={{ textAlign: 'center', p: 3 }}>
+                <Typography variant="h6" color="error" sx={{ mb: 1 }}>
+                  File Not Available
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  The original file is no longer available in storage.
+                </Typography>
+              </Box>
+            </Box>
+          )}
+        </Box>
+        <Dialog open={anonOpen} onClose={() => setAnonOpen(false)} fullWidth maxWidth="md">
+          <DialogTitle>Anonymized Text</DialogTitle>
+          <DialogContent>
+            <Typography component="pre" sx={{ whiteSpace: 'pre-wrap' }}>{anonText}</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setAnonOpen(false)}>Close</Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
+    );
+  }
+
+  // For DOCX files, try client-side rendering via data URL endpoint
+  if (cv.filename.toLowerCase().endsWith('.docx')) {
+    React.useEffect(() => {
+      let cancelled = false;
+      const loadDocx = async () => {
+        setLoadingDocx(true);
+        try {
+          const res = await fetch(`${API}/cv/${cv.id}/view`);
+          if (!res.ok) throw new Error('Failed to fetch docx');
+          const data = await res.json();
+          const { data_url } = data;
+          const response = await fetch(data_url);
+          if (!response.ok) throw new Error('Failed to fetch docx data');
+          const arrayBuffer = await response.arrayBuffer();
+          if (cancelled) return;
+          if (viewerRef.current) {
+            viewerRef.current.innerHTML = '';
+            await docx.renderAsync(arrayBuffer, viewerRef.current);
+          }
+        } catch (e) {
+          if (!cancelled && viewerRef.current) {
+            viewerRef.current.innerHTML = `<p>Error loading DOCX: ${e instanceof Error ? e.message : 'Unknown error'}</p>`;
+          }
+        } finally {
+          if (!cancelled) setLoadingDocx(false);
+        }
+      };
+      loadDocx();
+      return () => { cancelled = true; };
+    }, [cv.id]);
+
+    return (
+      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ p: 1, bgcolor: 'grey.100', borderBottom: '1px solid', borderColor: 'grey.300', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="caption" color="text.secondary">
+            DOCX Viewer
+          </Typography>
+          <Box sx={{ ml: 'auto' }}>
+            <Button size="small" variant="outlined" onClick={fetchAnonymized} disabled={anonLoading}>
+              {anonLoading ? 'Loading...' : 'View anonymized text'}
+            </Button>
+          </Box>
+        </Box>
+        <Box sx={{ flex: 1, overflow: 'auto', p: 1 }}>
+          {loadingDocx ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <div ref={viewerRef} style={{ height: '100%' }} />
+          )}
+        </Box>
+        <Dialog open={anonOpen} onClose={() => setAnonOpen(false)} fullWidth maxWidth="md">
+          <DialogTitle>Anonymized Text</DialogTitle>
+          <DialogContent>
+            <Typography component="pre" sx={{ whiteSpace: 'pre-wrap' }}>{anonText}</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setAnonOpen(false)}>Close</Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
+    );
+  }
+
+  // Fallback for other file types
+  return (
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ p: 1, bgcolor: 'grey.100', borderBottom: '1px solid', borderColor: 'grey.300', display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography variant="caption" color="text.secondary">
+          File Viewer
+        </Typography>
+        <Box sx={{ ml: 'auto' }}>
+          <Button size="small" variant="outlined" onClick={fetchAnonymized} disabled={anonLoading}>
+            {anonLoading ? 'Loading...' : 'View anonymized text'}
+          </Button>
+        </Box>
+      </Box>
+      <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Typography variant="body2" color="text.secondary">
+          File type not supported for preview
+        </Typography>
+      </Box>
+      <Dialog open={anonOpen} onClose={() => setAnonOpen(false)} fullWidth maxWidth="md">
+        <DialogTitle>Anonymized Text</DialogTitle>
+        <DialogContent>
+          <Typography component="pre" sx={{ whiteSpace: 'pre-wrap' }}>{anonText}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAnonOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  );
+}
 
 interface CV {
   id: number;
@@ -88,23 +277,80 @@ interface MatchResponse {
 const MatchingPage: React.FC = () => {
   const { token, user } = useAuth();
   const theme = useTheme();
+  const { jdText, setJdText, error, setError } = useAppState();
   const [collections, setCollections] = useState<Collection[]>([]);
   const [selectedCollections, setSelectedCollections] = useState<Set<number>>(new Set());
   const [selectedCVs, setSelectedCVs] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [expandedCollections, setExpandedCollections] = useState<Set<number>>(new Set());
-  const [jdText, setJdText] = useState('');
   const [jdTab, setJdTab] = useState(0);
   const [jdFile, setJdFile] = useState<File | null>(null);
   const [jdUploading, setJdUploading] = useState(false);
   const [matchResults, setMatchResults] = useState<MatchItem[] | null>(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [selectedResult, setSelectedResult] = useState<MatchItem | null>(null);
+  const [showViewDialog, setShowViewDialog] = useState(false);
+  const [enhancedCvLoading, setEnhancedCvLoading] = useState(false);
+  const [selectedCVForView, setSelectedCVForView] = useState<CV | null>(null);
 
   useEffect(() => {
     fetchCollections();
   }, []);
+
+  const exportToXLSX = () => {
+    if (!matchResults || matchResults.length === 0) {
+      setError('No results to export');
+      return;
+    }
+
+    // Create CSV content
+    const headers = [
+      'Filename',
+      'Fit Score (%)',
+      'ATS Score',
+      'Recommend',
+      'Strengths',
+      'Weaknesses',
+      'Edit Suggestions',
+      'ATS Keywords',
+      'ATS Formatting',
+      'ATS Completeness',
+      'Decision Rationale',
+      'Counterfactuals'
+    ];
+
+    const csvContent = [
+      headers.join(','),
+      ...matchResults.map(item => {
+        const analysis = (item.detailed_scores as any)?.analysis;
+        return [
+          `"${item.filename}"`,
+          (item.score * 100).toFixed(1),
+          analysis?.ats_check?.score || 'N/A',
+          analysis?.recommendation || 'N/A',
+          `"${(analysis?.strengths || []).join('; ')}"`,
+          `"${(analysis?.weaknesses || []).join('; ')}"`,
+          `"${(analysis?.edit_suggestions || []).join('; ')}"`,
+          `"${analysis?.ats_check?.Keywords || 'N/A'}"`,
+          `"${analysis?.ats_check?.Formatting || 'N/A'}"`,
+          `"${analysis?.ats_check?.Completeness || 'N/A'}"`,
+          `"${(analysis?.decision_rationale?.main_reasons || []).join('; ')}"`,
+          `"${(analysis?.counterfactuals || []).map((cf: any) => cf.requirement).join('; ')}"`
+        ].join(',');
+      })
+    ].join('\n');
+
+    // Create and download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `matching_results_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const fetchCollections = async () => {
     if (!token) return;
@@ -276,6 +522,49 @@ const MatchingPage: React.FC = () => {
       setLoading(false);
     }
   };
+
+  const handleGenerateEnhancedCV = async (cvText: string) => {
+    if (!cvText.trim() || !jdText.trim()) {
+      setError('Please provide both CV and Job Description text');
+      return;
+    }
+
+    setEnhancedCvLoading(true);
+    try {
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+      const response = await fetch(`${API_BASE}/match/enhance-cv`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          cv_text: cvText,
+          jd_text: jdText
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate enhanced CV');
+      }
+
+      // Download the PDF
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'enhanced_cv.pdf');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate enhanced CV');
+    } finally {
+      setEnhancedCvLoading(false);
+    }
+  };
+
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('vi-VN', {
@@ -499,11 +788,19 @@ const MatchingPage: React.FC = () => {
                                   secondary={`Uploaded: ${formatDate(cv.uploaded_at)}`}
                                 />
                                 <ListItemSecondaryAction>
-                                  <Tooltip title="View CV details">
-                                    <IconButton size="small">
-                                      <InfoIcon fontSize="small" />
-                                    </IconButton>
-                                  </Tooltip>
+                                  <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                    <Tooltip title="View CV details">
+                                      <IconButton 
+                                        size="small"
+                                        onClick={() => {
+                                          setSelectedCVForView(cv);
+                                          setShowViewDialog(true);
+                                        }}
+                                      >
+                                        <InfoIcon fontSize="small" />
+                                      </IconButton>
+                                    </Tooltip>
+                                  </Box>
                                 </ListItemSecondaryAction>
                               </ListItem>
                             ))}
@@ -529,7 +826,18 @@ const MatchingPage: React.FC = () => {
                   <TrendingUpIcon color="success" />
                   Matching Results
                 </Typography>
-                <Chip label={`${matchResults.length} result(s)`} size="small" color="success" variant="outlined" />
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <Chip label={`${matchResults.length} result(s)`} size="small" color="success" variant="outlined" />
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<FileDownloadIcon />}
+                    onClick={exportToXLSX}
+                    sx={{ ml: 1 }}
+                  >
+                    Export CSV
+                  </Button>
+                </Stack>
               </Stack>
 
               {matchResults.length === 0 ? (
@@ -551,7 +859,13 @@ const MatchingPage: React.FC = () => {
                               <Typography variant="body1" sx={{ fontWeight: idx === 0 ? 600 : 500, mr: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {item.filename}
                               </Typography>
-                              <Chip label={`Score: ${item.score.toFixed(4)} (${percent}%)`} size="small" color={idx === 0 ? 'success' : 'default'} />
+                              <Stack direction="row" spacing={1} alignItems="center">
+                                <Chip label={`Fit: ${(item.score * 100).toFixed(1)}%`} size="small" color={idx === 0 ? 'success' : 'default'} />
+                                <Chip label={`ATS: ${typeof (item.detailed_scores as any)?.analysis?.ats_check?.score === 'number' ? Number((item.detailed_scores as any).analysis.ats_check.score).toFixed(0) + ' / 100' : '-'}`} size="small" color="info" />
+                                {((item.detailed_scores as any)?.analysis?.recommendation) && (
+                                  <Chip label={(item.detailed_scores as any).analysis.recommendation} size="small" color={(item.detailed_scores as any).analysis.recommendation === 'yes' ? 'success' : 'default'} />
+                                )}
+                              </Stack>
                             </Stack>
                             <LinearProgress variant="determinate" value={percent} sx={{ mt: 1, height: 8, borderRadius: 1 }} />
                           </Box>
@@ -628,14 +942,22 @@ const MatchingPage: React.FC = () => {
           {selectedResult && (
             <Stack spacing={3}>
               {/* Overall Score */}
-              <Box sx={{ p: 2, bgcolor: 'primary.light', borderRadius: 2, textAlign: 'center' }}>
-                <Typography variant="h4" sx={{ fontWeight: 700, color: 'primary.contrastText' }}>
-                  {(selectedResult.score * 100).toFixed(1)}%
-                </Typography>
-                <Typography variant="body1" color="primary.contrastText">
-                  Overall Match Score
-                </Typography>
-              </Box>
+              <Stack direction="row" spacing={2} justifyContent="center">
+                <Box sx={{ p: 2, bgcolor: 'primary.light', borderRadius: 2, minWidth: 220, textAlign: 'center' }}>
+                  <Typography variant="overline" sx={{ color: 'primary.contrastText', letterSpacing: 1 }}>FIT SCORE</Typography>
+                  <Typography variant="h4" sx={{ fontWeight: 700, color: 'primary.contrastText' }}>
+                    {(selectedResult.score * 100).toFixed(1)}%
+                  </Typography>
+                </Box>
+                {typeof (selectedResult.detailed_scores as any)?.analysis?.ats_check?.score === 'number' && (
+                  <Box sx={{ p: 2, bgcolor: 'info.main', borderRadius: 2, minWidth: 220, textAlign: 'center' }}>
+                    <Typography variant="overline" sx={{ color: 'info.contrastText', letterSpacing: 1 }}>ATS SCORE</Typography>
+                    <Typography variant="h5" sx={{ fontWeight: 700, color: 'info.contrastText' }}>
+                      {Number((selectedResult.detailed_scores as any).analysis.ats_check.score).toFixed(0)} / 100
+                    </Typography>
+                  </Box>
+                )}
+              </Stack>
 
               {/* Detailed Scores */}
               {selectedResult.detailed_scores && (
@@ -647,14 +969,27 @@ const MatchingPage: React.FC = () => {
                   </AccordionSummary>
                   <AccordionDetails>
                     <Grid container spacing={2}>
-                      {Object.entries(selectedResult.detailed_scores).map(([key, value]) => (
+                      {Object.entries(selectedResult.detailed_scores)
+                        .filter(([key, value]) => key !== 'score' && typeof value === 'number')
+                        .map(([key, value]) => (
                         <Grid item xs={6} sm={4} key={key}>
                           <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
                             <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase' }}>
-                              {key.replace(/_/g, ' ')}
+                              {(() => {
+                                const map: Record<string, string> = {
+                                  s_must: 'Must-have coverage',
+                                  s_nice: 'Nice-to-have coverage',
+                                  s_skills: 'Skills balance',
+                                  s_experience: 'Experience match',
+                                  s_education: 'Education match',
+                                  s_languages: 'Languages match',
+                                  score: 'Relevance score'
+                                };
+                                return map[key] || key.replace(/_/g, ' ');
+                              })()}
                             </Typography>
                             <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                              {(value * 100).toFixed(1)}%
+                              {typeof value === 'number' ? (value * 100).toFixed(1) + '%' : String(value)}
                             </Typography>
                           </Box>
                         </Grid>
@@ -664,12 +999,133 @@ const MatchingPage: React.FC = () => {
                 </Accordion>
               )}
 
+              {/* Analysis */}
+              {selectedResult.detailed_scores && (selectedResult.detailed_scores as any).analysis && (
+                <Accordion>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                      Detailed Analysis
+                    </Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Stack spacing={2}>
+                      {(selectedResult.detailed_scores as any).analysis.recommendation && (
+                        <Box>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>Recommendation</Typography>
+                          <Chip label={(selectedResult.detailed_scores as any).analysis.recommendation} color={(selectedResult.detailed_scores as any).analysis.recommendation === 'yes' ? 'success' : 'default'} />
+                        </Box>
+                      )}
+                      {(selectedResult.detailed_scores as any).analysis.decision_rationale && (
+                        <Box>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>Decision Rationale</Typography>
+                          {(selectedResult.detailed_scores as any).analysis.decision_rationale.main_reasons && (
+                            <Box sx={{ mb: 1 }}>
+                              <Typography variant="body2" sx={{ fontWeight: 600 }}>Main reasons</Typography>
+                              <Stack spacing={0.5}>
+                                {(selectedResult.detailed_scores as any).analysis.decision_rationale.main_reasons.map((s: string, idx: number) => (
+                                  <Typography key={idx} variant="body2">• {s}</Typography>
+                                ))}
+                              </Stack>
+                            </Box>
+                          )}
+                          {(selectedResult.detailed_scores as any).analysis.decision_rationale.key_missing_factors && (
+                            <Box>
+                              <Typography variant="body2" sx={{ fontWeight: 600 }}>Key missing factors</Typography>
+                              <Stack spacing={0.5}>
+                                {(selectedResult.detailed_scores as any).analysis.decision_rationale.key_missing_factors.map((s: string, idx: number) => (
+                                  <Typography key={idx} variant="body2">• {s}</Typography>
+                                ))}
+                              </Stack>
+                            </Box>
+                          )}
+                        </Box>
+                      )}
+                      {(selectedResult.detailed_scores as any).analysis.strengths && (
+                        <Box>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>Strengths</Typography>
+                          <Stack direction="row" flexWrap="wrap" gap={1}>
+                            {(selectedResult.detailed_scores as any).analysis.strengths.map((s: string, idx: number) => (
+                              <Chip key={idx} label={s} variant="outlined" />
+                            ))}
+                          </Stack>
+                        </Box>
+                      )}
+                      {(selectedResult.detailed_scores as any).analysis.weaknesses && (
+                        <Box>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>Weaknesses</Typography>
+                          <Stack direction="row" flexWrap="wrap" gap={1}>
+                            {(selectedResult.detailed_scores as any).analysis.weaknesses.map((s: string, idx: number) => (
+                              <Chip key={idx} color="warning" label={s} variant="outlined" />
+                            ))}
+                          </Stack>
+                        </Box>
+                      )}
+                      {(selectedResult.detailed_scores as any).analysis.edit_suggestions && (
+                        <Box>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>Edit Suggestions</Typography>
+                          <Stack spacing={0.5}>
+                            {(selectedResult.detailed_scores as any).analysis.edit_suggestions.map((s: string, idx: number) => (
+                              <Typography key={idx} variant="body2">• {s}</Typography>
+                            ))}
+                          </Stack>
+                        </Box>
+                      )}
+                      {(selectedResult.detailed_scores as any).analysis.ats_check && (
+                        <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>ATS Check</Typography>
+                          <Typography variant="body2">Keywords: {(selectedResult.detailed_scores as any).analysis.ats_check.Keywords}</Typography>
+                          <Typography variant="body2">Formatting: {(selectedResult.detailed_scores as any).analysis.ats_check.Formatting}</Typography>
+                          <Typography variant="body2">Completeness: {(selectedResult.detailed_scores as any).analysis.ats_check.Completeness}</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 600, mt: 1 }}>Score: {(selectedResult.detailed_scores as any).analysis.ats_check.score} / 100</Typography>
+                        </Box>
+                      )}
+                      {(selectedResult.detailed_scores as any).analysis.counterfactuals && (
+                        <Box>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>Counterfactuals</Typography>
+                          <Stack spacing={1}>
+                            {(selectedResult.detailed_scores as any).analysis.counterfactuals.map((c: any, idx: number) => (
+                              <Paper key={idx} variant="outlined" sx={{ p: 1.5 }}>
+                                <Typography variant="body2" sx={{ fontWeight: 600 }}>{c.requirement}</Typography>
+                                <Typography variant="body2">Suggested: {c.suggested_change}</Typography>
+                                {'predicted_score_delta' in c && (
+                                  <Typography variant="body2">Δ Score: {c.predicted_score_delta}</Typography>
+                                )}
+                              </Paper>
+                            ))}
+                          </Stack>
+                        </Box>
+                      )}
+                      {(selectedResult.detailed_scores as any).analysis.contrastive_explanations && (
+                        <Box>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>Contrastive Explanations</Typography>
+                          <Stack spacing={0.5}>
+                            {(selectedResult.detailed_scores as any).analysis.contrastive_explanations.map((s: string, idx: number) => (
+                              <Typography key={idx} variant="body2">• {s}</Typography>
+                            ))}
+                          </Stack>
+                        </Box>
+                      )}
+                      {(selectedResult.detailed_scores as any).analysis.decision_path && (
+                        <Box>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>Decision Path</Typography>
+                          <Stack spacing={0.5}>
+                            {(selectedResult.detailed_scores as any).analysis.decision_path.map((s: string, idx: number) => (
+                              <Typography key={idx} variant="body2">• {s}</Typography>
+                            ))}
+                          </Stack>
+                        </Box>
+                      )}
+                    </Stack>
+                  </AccordionDetails>
+                </Accordion>
+              )}
+
               {/* Anonymized CV Text */}
               {selectedResult.anonymized_cv_text && (
                 <Accordion>
                   <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                     <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                      Anonymized CV Content
+                      CV Content
                     </Typography>
                   </AccordionSummary>
                   <AccordionDetails>
@@ -695,7 +1151,7 @@ const MatchingPage: React.FC = () => {
                 <Accordion>
                   <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                     <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                      Anonymized Job Description
+                      Job Description
                     </Typography>
                   </AccordionSummary>
                   <AccordionDetails>
@@ -718,12 +1174,82 @@ const MatchingPage: React.FC = () => {
             </Stack>
           )}
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          {selectedResult?.detailed_scores?.analysis && (
+            <Button 
+              variant="contained" 
+              onClick={() => {
+                if (selectedResult?.anonymized_cv_text) {
+                  handleGenerateEnhancedCV(selectedResult.anonymized_cv_text);
+                }
+              }}
+              disabled={enhancedCvLoading || !selectedResult?.anonymized_cv_text}
+              startIcon={enhancedCvLoading ? <CircularProgress size={16} /> : <AutoFixHighIcon />}
+            >
+              {enhancedCvLoading ? 'Generating...' : 'Generate Enhanced CV'}
+            </Button>
+          )}
+          <Box sx={{ flex: 1 }} />
           <Button onClick={() => setShowDetailsDialog(false)}>
             Close
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* View CV Details Dialog */}
+      <Dialog 
+        open={showViewDialog} 
+        onClose={() => setShowViewDialog(false)} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            boxShadow: theme.shadows[12]
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          background: alpha(theme.palette.primary.main, 0.05),
+          borderBottom: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
+              <DescriptionIcon />
+            </Avatar>
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                CV Content - {selectedCVForView?.filename}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Uploaded {selectedCVForView && formatDate(selectedCVForView.uploaded_at)}
+              </Typography>
+            </Box>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3, p: 0 }}>
+          <Box sx={{ 
+            height: '70vh',
+            width: '100%',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            {selectedCVForView && (
+              <FileViewer cv={selectedCVForView} token={token} />
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button 
+            onClick={() => setShowViewDialog(false)}
+            variant="contained"
+            sx={{ borderRadius: 2 }}
+          >
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
     </Box>
   );
 };

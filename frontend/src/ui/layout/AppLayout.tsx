@@ -1,5 +1,6 @@
 import React from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
+import { AppStateProvider } from '../context/AppStateContext'
 import { 
   AppBar, 
   Toolbar, 
@@ -29,7 +30,7 @@ import axios from 'axios'
 
 const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
-export const AppLayout: React.FC = () => {
+const AppLayoutContent: React.FC = () => {
   const { user, logout, loading } = useAuth()
   const navigate = useNavigate()
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null)
@@ -262,5 +263,13 @@ export const AppLayout: React.FC = () => {
         <Outlet />
       </Container>
     </Box>
+  )
+}
+
+export const AppLayout: React.FC = () => {
+  return (
+    <AppStateProvider>
+      <AppLayoutContent />
+    </AppStateProvider>
   )
 }
