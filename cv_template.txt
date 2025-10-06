@@ -1,39 +1,106 @@
-% CV Enhancement Template
-% This template will be used to generate enhanced CVs based on LLM suggestions
-
 \documentclass[11pt,a4paper]{article}
 \usepackage[utf8]{inputenc}
-\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=1.6cm]{geometry}
 \usepackage{enumitem}
 \usepackage{hyperref}
 \usepackage{xcolor}
+\usepackage{parskip}
 
-\title{\textbf{CV_NAME}}
-\author{CV_EMAIL}
-\date{CV_PHONE}
+% --- Styles ---
+\renewcommand{\familydefault}{\sfdefault}
+\definecolor{accent}{HTML}{000000}
+\hypersetup{
+  colorlinks=true,
+  urlcolor=accent,
+  linkcolor=accent
+}
+\newcommand{\SectionTitle}[1]{\vspace{10pt}\noindent\textbf{\large\color{accent}#1}\par\vspace{4pt}}
 
+% --- Document ---
 \begin{document}
 
-\maketitle
+% ===== Header =====
+\begin{center}
+  % NOTE: This template is STYLE-ONLY. Do not treat values below as ground-truth.
+  % Keep these neutral placeholders to avoid leaking real identities from template.
+  \textcolor{accent} {\Huge\bfseries  Your Name}\\[4pt]
+  {\large \textcolor{accent}{Your Professional Title}}\\[6pt]
+  \small
+  \href{mailto:your.email@example.com}{your.email@example.com} \quad|\quad
+  +00 0000 000 000 \quad|\quad
+  \href{https://linkedin.com/in/your-profile}{linkedin.com/in/your-profile} \quad|\quad
+  \href{https://github.com/your-handle}{github.com/your-handle}
+\end{center}
 
-\section*{Professional Summary}
-CV_SUMMARY
+\vspace{6pt}
+\noindent\color{accent}\rule{\linewidth}{1.2pt}
 
-\section*{Technical Skills}
-\begin{itemize}[leftmargin=*]
-CV_SKILLS
+% ===== Profile =====
+\SectionTitle{Profile}
+% Keep this paragraph as a style example only; content is neutral
+Results-driven professional with experience designing and deploying modern software/AI systems. Specialized in building scalable services and data/ML pipelines. Passionate about delivering real-world impact.
+
+% ===== Technical Skills =====
+\SectionTitle{Technical Skills}
+\begin{itemize}[leftmargin=1.2em,noitemsep,topsep=2pt]
+  \item \textbf{Languages:} Example languages here
+  \item \textbf{Frameworks:} Example frameworks here
+  \item \textbf{Infra:} Example platforms/tools here
+  \item \textbf{Databases:} Example databases here
+  \item \textbf{Cloud:} Example cloud services here
+  \item \textbf{Concepts:} Example domain concepts here
 \end{itemize}
 
-\section*{Work Experience}
-CV_EXPERIENCE
+% ===== Experience =====
+\SectionTitle{Experience}
 
-\section*{Education}
-CV_EDUCATION
+\textbf{Most Recent Role} \hfill \textit{Dates Here}\\
+Company Name, City, Country
+\begin{itemize}[leftmargin=1.2em,noitemsep,topsep=2pt]
+  \item Example impact bullet with quantifiable outcome.
+  \item Example responsibility bullet aligned to role.
+  \item Example technology/process bullet.
+\end{itemize}
 
-\section*{Projects}
-CV_PROJECTS
+\vspace{6pt}
+\textbf{Previous Role} \hfill \textit{Dates Here}\\
+Company Name, City, Country
+\begin{itemize}[leftmargin=1.2em,noitemsep,topsep=2pt]
+  \item Example bullet 1.
+  \item Example bullet 2.
+  \item Example bullet 3.
+\end{itemize}
 
-\section*{Additional Information}
-CV_ADDITIONAL
+% ===== Projects =====
+\SectionTitle{Projects}
+\begin{itemize}[leftmargin=1.2em,noitemsep,topsep=2pt]
+  \item \textbf{Project Title:} Short neutral description.
+  \item \textbf{Project Title:} Short neutral description.
+\end{itemize}
+
+% ===== Education =====
+\SectionTitle{Education}
+\begin{itemize}[leftmargin=1.2em,noitemsep,topsep=2pt]
+  \item Degree, University — Year
+  \item Degree, University — Year
+\end{itemize}
+
+% ===== Publications =====
+\SectionTitle{Publications \& Contributions}
+\begin{itemize}[leftmargin=1.2em,noitemsep,topsep=2pt]
+  \item Example publication or contribution
+\end{itemize}
+
+% ===== Languages =====
+\SectionTitle{Languages}
+\begin{itemize}[leftmargin=1.2em,noitemsep,topsep=2pt]
+  \item Language — Level
+  \item Language — Level
+\end{itemize}
+
+\vspace{8pt}
+\noindent\color{accent}\rule{\linewidth}{0.6pt}
 
 \end{document}

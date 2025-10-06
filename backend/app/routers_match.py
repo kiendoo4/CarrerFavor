@@ -14,7 +14,7 @@ from .scoring import compute_similarity_score, compute_similarity_score_detailed
 from .models import LLMConfig
 from .adk_agent.agent import run_resume_scoring_agent
 from .models import LLMConfig
-from .cv_enhancement import generate_enhanced_cv_pdf
+from .cv_enhancement import generate_enhanced_cv_pdf, generate_enhanced_cv_pdf_and_analysis
 # Presidio anonymization disabled
 # from .presidio_client import analyze_and_anonymize
 
@@ -94,7 +94,7 @@ async def enhance_cv(
     llm_config = db.query(LLMConfig).filter(LLMConfig.user_id == user.id).first()
     
     try:
-        pdf_content = await generate_enhanced_cv_pdf(
+        result = await generate_enhanced_cv_pdf_and_analysis(
             payload.cv_text,
             payload.jd_text,
             llm_provider=str(llm_config.llm_provider.value if hasattr(llm_config.llm_provider, 'value') else llm_config.llm_provider) if llm_config else None,
@@ -103,12 +103,13 @@ async def enhance_cv(
             ollama_base_url=llm_config.ollama_base_url if llm_config else None,
         )
         
-        from fastapi.responses import Response
-        return Response(
-            content=pdf_content,
-            media_type="application/pdf",
-            headers={"Content-Disposition": "attachment; filename=enhanced_cv.pdf"}
-        )
+        from fastapi.responses import JSONResponse
+        import base64
+        pdf_b64 = base64.b64encode(result['pdf']).decode('utf-8')
+        return JSONResponse(content={
+            'pdf_base64': pdf_b64,
+            'analysis': result.get('analysis', {})
+        })
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate enhanced CV: {str(e)}")
 

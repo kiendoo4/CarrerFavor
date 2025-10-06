@@ -720,16 +720,13 @@ export const EvaluationPage: React.FC = () => {
           <Grid item xs={12}>
             <Box sx={{ textAlign: 'center', py: 2 }}>
               <Button
-                variant="contained"
+                variant="outlined"
                 startIcon={loading ? <CircularProgress size={20} /> : <PlayArrow />}
                 onClick={handleStartEvaluation}
                 disabled={loading || !canStartEvaluation()}
                 sx={{
                   fontWeight: 600,
-                  background: 'linear-gradient(45deg, #2563eb 30%, #7c3aed 90%)',
-                  '&:hover': {
-                    background: 'linear-gradient(45deg, #1d4ed8 30%, #6d28d9 90%)',
-                  }
+                  textTransform: 'none'
                 }}
               >
                 {loading ? 'Starting Evaluation...' : 'Start Evaluation'}

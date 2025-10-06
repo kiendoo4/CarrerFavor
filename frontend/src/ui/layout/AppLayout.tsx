@@ -122,49 +122,105 @@ const AppLayoutContent: React.FC = () => {
             
             <Box sx={{ flexGrow: 1 }} />
             
-            {/* Navigation buttons */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mr: 2 }}>
-              <Button
-                variant={window.location.pathname === '/candidate' ? 'contained' : 'outlined'}
-                size="small"
-                startIcon={<Person />}
+            {/* Navigation tabs */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 4, mr: 2 }}>
+              <Box
+                sx={{
+                  position: 'relative',
+                  cursor: 'pointer',
+                  py: 1,
+                  px: 0.5,
+                  borderBottom: window.location.pathname === '/candidate' ? '3px solid' : 'none',
+                  borderColor: 'primary.main',
+                  color: window.location.pathname === '/candidate' ? 'primary.main' : 'text.primary',
+                  fontWeight: window.location.pathname === '/candidate' ? 700 : 500,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.75,
+                  transition: 'color 0.2s ease',
+                  '&:hover': {
+                    color: 'primary.main'
+                  }
+                }}
                 onClick={() => navigate('/candidate')}
-                sx={{ minWidth: 'auto' }}
               >
-                Candidate
-              </Button>
+                <Person fontSize="small" />
+                <Typography sx={{ fontSize: '0.9rem', fontWeight: 'inherit' }}>Candidate</Typography>
+              </Box>
               {user?.role === 'hr' && (
-                <Button
-                  variant={window.location.pathname === '/matching' ? 'contained' : 'outlined'}
-                  size="small"
-                  startIcon={<Business />}
+                <Box
+                  sx={{
+                    position: 'relative',
+                    cursor: 'pointer',
+                    py: 1,
+                    px: 0.5,
+                    borderBottom: window.location.pathname === '/matching' ? '3px solid' : 'none',
+                    borderColor: 'primary.main',
+                    color: window.location.pathname === '/matching' ? 'primary.main' : 'text.primary',
+                    fontWeight: window.location.pathname === '/matching' ? 700 : 500,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.75,
+                    transition: 'color 0.2s ease',
+                    '&:hover': {
+                      color: 'primary.main'
+                    }
+                  }}
                   onClick={() => navigate('/matching')}
-                  sx={{ minWidth: 'auto' }}
                 >
-                  Matching
-                </Button>
+                  <Business fontSize="small" />
+                  <Typography sx={{ fontSize: '0.9rem', fontWeight: 'inherit' }}>Matching</Typography>
+                </Box>
               )}
               {user?.role === 'hr' && (
-                <Button
-                  variant={window.location.pathname === '/cv-management' ? 'contained' : 'outlined'}
-                  size="small"
-                  startIcon={<Folder />}
+                <Box
+                  sx={{
+                    position: 'relative',
+                    cursor: 'pointer',
+                    py: 1,
+                    px: 0.5,
+                    borderBottom: window.location.pathname === '/cv-management' ? '3px solid' : 'none',
+                    borderColor: 'primary.main',
+                    color: window.location.pathname === '/cv-management' ? 'primary.main' : 'text.primary',
+                    fontWeight: window.location.pathname === '/cv-management' ? 700 : 500,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.75,
+                    transition: 'color 0.2s ease',
+                    '&:hover': {
+                      color: 'primary.main'
+                    }
+                  }}
                   onClick={() => navigate('/cv-management')}
-                  sx={{ minWidth: 'auto' }}
                 >
-                  CV Management
-                </Button>
+                  <Folder fontSize="small" />
+                  <Typography sx={{ fontSize: '0.9rem', fontWeight: 'inherit' }}>CV Management</Typography>
+                </Box>
               )}
               {user?.role === 'hr' && (
-                <Button
-                  variant={window.location.pathname === '/evaluation' ? 'contained' : 'outlined'}
-                  size="small"
-                  startIcon={<Assessment />}
+                <Box
+                  sx={{
+                    position: 'relative',
+                    cursor: 'pointer',
+                    py: 1,
+                    px: 0.5,
+                    borderBottom: window.location.pathname === '/evaluation' ? '3px solid' : 'none',
+                    borderColor: 'primary.main',
+                    color: window.location.pathname === '/evaluation' ? 'primary.main' : 'text.primary',
+                    fontWeight: window.location.pathname === '/evaluation' ? 700 : 500,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.75,
+                    transition: 'color 0.2s ease',
+                    '&:hover': {
+                      color: 'primary.main'
+                    }
+                  }}
                   onClick={() => navigate('/evaluation')}
-                  sx={{ minWidth: 'auto' }}
                 >
-                  Evaluation
-                </Button>
+                  <Assessment fontSize="small" />
+                  <Typography sx={{ fontSize: '0.9rem', fontWeight: 'inherit' }}>Evaluation</Typography>
+                </Box>
               )}
             </Box>
 

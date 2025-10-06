@@ -650,8 +650,6 @@ async def run_resume_scoring_agent(cv_info, jd_info, llm_provider: str = None, l
                         if txt:
                             # Strip common markdown fences from provider outputs
                             cleaned = remove_json_fence(txt)
-                            print("analyze_agent raw output:")
-                            print(cleaned)
                             analyze_response = cleaned
                     except Exception:
                         pass

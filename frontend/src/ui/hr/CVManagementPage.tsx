@@ -744,7 +744,7 @@ export const CVManagementPage: React.FC = () => {
         mb: 4
       }}>
         <Button
-          variant="contained"
+          variant="outlined"
           startIcon={<AddIcon />}
           onClick={() => {
             setEditingCollection(null);
@@ -752,17 +752,9 @@ export const CVManagementPage: React.FC = () => {
             setShowCollectionDialog(true);
           }}
           sx={{
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            color: 'white',
             borderRadius: 3,
             px: 4,
             py: 1.5,
-            boxShadow: '0 8px 32px rgba(102, 126, 234, 0.4)',
-            '&:hover': {
-              background: 'linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%)',
-              transform: 'translateY(-2px)',
-              boxShadow: '0 12px 40px rgba(102, 126, 234, 0.6)',
-            },
             transition: 'all 0.3s ease',
             fontWeight: 600,
             textTransform: 'none',

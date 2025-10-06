@@ -40,6 +40,8 @@ import {
   Download,
   AutoFixHigh
 } from '@mui/icons-material'
+import { Accordion, AccordionSummary, AccordionDetails, List, ListItem, ListItemText } from '@mui/material'
+import ExpandMore from '@mui/icons-material/ExpandMore'
 import axios from 'axios'
 import { useAuth } from '../auth/AuthContext'
 import { useAppState } from '../context/AppStateContext'
@@ -102,6 +104,9 @@ export const CandidatePage: React.FC = () => {
   } = useAppState()
   const [showAnalysis, setShowAnalysis] = useState(false)
   const [showViewDialog, setShowViewDialog] = useState(false)
+  const [showEnhancedDialog, setShowEnhancedDialog] = useState(false)
+  const [enhancedPdfUrl, setEnhancedPdfUrl] = useState<string | null>(null)
+  const [enhancedAnalysis, setEnhancedAnalysis] = useState<any | null>(null)
   const [enhancedCvLoading, setEnhancedCvLoading] = useState(false)
   const [cvTab, setCvTab] = useState(0)
   const [jdTab, setJdTab] = useState(0)
@@ -174,23 +179,24 @@ export const CandidatePage: React.FC = () => {
 
     setEnhancedCvLoading(true)
     try {
-      const response = await axios.post(`${API}/match/enhance-cv`, {
+      const { data } = await axios.post(`${API}/match/enhance-cv`, {
         cv_text: cvText,
         jd_text: jdText
       }, {
-        headers: { 'Authorization': `Bearer ${token}` },
-        responseType: 'blob'
+        headers: { 'Authorization': `Bearer ${token}` }
       })
-
-      // Create download link
-      const url = window.URL.createObjectURL(new Blob([response.data]))
-      const link = document.createElement('a')
-      link.href = url
-      link.setAttribute('download', 'enhanced_cv.pdf')
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-      window.URL.revokeObjectURL(url)
+      if (data?.pdf_base64) {
+        const binary = atob(data.pdf_base64)
+        const bytes = new Uint8Array(binary.length)
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+        const blob = new Blob([bytes], { type: 'application/pdf' })
+        const url = window.URL.createObjectURL(blob)
+        setEnhancedPdfUrl(url)
+      }
+      if (data?.analysis) {
+        setEnhancedAnalysis(data.analysis.analysis || data.analysis)
+      }
+      setShowEnhancedDialog(true)
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to generate enhanced CV')
     } finally {
@@ -448,6 +454,125 @@ export const CandidatePage: React.FC = () => {
           <Button onClick={() => setShowAnalysis(false)}>Close</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Enhanced CV Preview Dialog */}
+      <Dialog 
+        open={showEnhancedDialog} 
+        onClose={() => {
+          setShowEnhancedDialog(false)
+          if (enhancedPdfUrl) {
+            window.URL.revokeObjectURL(enhancedPdfUrl)
+            setEnhancedPdfUrl(null)
+          }
+        }} 
+        maxWidth="lg" 
+        fullWidth
+      >
+        <DialogTitle>Enhanced CV</DialogTitle>
+        <DialogContent dividers sx={{ pt: 2 }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={7}>
+              <Box sx={{ height: { xs: 400, md: 600 } }}>
+                {enhancedPdfUrl ? (
+                  <iframe src={enhancedPdfUrl} style={{ width: '100%', height: '100%', border: 'none' }} title="Enhanced CV" />
+                ) : (
+                  <Box sx={{ p: 3, textAlign: 'center' }}>No preview available</Box>
+                )}
+              </Box>
+            </Grid>
+            <Grid item xs={12} md={5}>
+              <Stack spacing={2}>
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <Paper sx={{ p: 2, flex: 1 }}>
+                    <Typography variant="caption" color="text.secondary">Fit Score</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                      { (() => {
+                        const s = (enhancedAnalysis as any)?.score ?? (analysis as any)?.score ?? (score != null ? score : null)
+                        if (s == null) return '—'
+                        const val = typeof s === 'number' ? s : Number(s)
+                        const pct = val > 1 ? val : val * 100
+                        return `${pct.toFixed(1)}%`
+                      })() }
+                    </Typography>
+                  </Paper>
+                  <Paper sx={{ p: 2, flex: 1 }}>
+                    <Typography variant="caption" color="text.secondary">ATS Score</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                      {(enhancedAnalysis as any)?.analysis?.ats_check?.score ?? (enhancedAnalysis as any)?.ats_check?.score ?? (analysis as any)?.analysis?.ats_check?.score ?? (analysis as any)?.ats_check?.score ?? '—'}
+                    </Typography>
+                  </Paper>
+                </Box>
+
+                {analysis && (
+                  <Accordion defaultExpanded>
+                    <AccordionSummary expandIcon={<ExpandMore />}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Detailed Match Analysis</Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Stack spacing={1}>
+                        {analysis?.recommendation && (
+                          <Typography variant="body2"><strong>Recommendation:</strong> {analysis.recommendation}</Typography>
+                        )}
+                        {analysis?.decision_rationale?.main_reasons?.length > 0 && (
+                          <>
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>Main reasons</Typography>
+                            <List dense>
+                              {analysis.decision_rationale.main_reasons.map((r: string, idx: number) => (
+                                <ListItem key={idx}><ListItemText primary={r} /></ListItem>
+                              ))}
+                            </List>
+                          </>
+                        )}
+                        {analysis?.strengths?.length > 0 && (
+                          <>
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>Strengths</Typography>
+                            <List dense>
+                              {analysis.strengths.map((r: string, idx: number) => (
+                                <ListItem key={idx}><ListItemText primary={r} /></ListItem>
+                              ))}
+                            </List>
+                          </>
+                        )}
+                        {analysis?.weaknesses?.length > 0 && (
+                          <>
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>Weaknesses</Typography>
+                            <List dense>
+                              {analysis.weaknesses.map((r: string, idx: number) => (
+                                <ListItem key={idx}><ListItemText primary={r} /></ListItem>
+                              ))}
+                            </List>
+                          </>
+                        )}
+                      </Stack>
+                    </AccordionDetails>
+                  </Accordion>
+                )}
+
+                <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end">
+                  {enhancedPdfUrl && (
+                    <Button variant="outlined" onClick={() => {
+                      const link = document.createElement('a')
+                      link.href = enhancedPdfUrl
+                      link.setAttribute('download', 'enhanced_cv.pdf')
+                      document.body.appendChild(link)
+                      link.click()
+                      link.remove()
+                    }}>Download PDF</Button>
+                  )}
+                  <Button variant="outlined" onClick={() => {
+                    setShowEnhancedDialog(false)
+                    if (enhancedPdfUrl) {
+                      window.URL.revokeObjectURL(enhancedPdfUrl)
+                      setEnhancedPdfUrl(null)
+                    }
+                  }}>Close</Button>
+                </Stack>
+              </Stack>
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }} />
+      </Dialog>
         {/* Job Description Section */}
         <Grid item xs={12} md={6}>
           <Card sx={{ height: '100%' }}>
@@ -527,7 +652,7 @@ export const CandidatePage: React.FC = () => {
               </Stack>
 
               <Button
-                variant="contained"
+                variant="outlined"
                 onClick={onCompute}
                 disabled={!cvText.trim() || !jdText.trim() || loading}
                 startIcon={<TrendingUp />}
@@ -537,14 +662,7 @@ export const CandidatePage: React.FC = () => {
                   px: 4,
                   fontSize: '1rem',
                   fontWeight: 600,
-                  background: 'linear-gradient(45deg, #2563eb 30%, #7c3aed 90%)',
-                  '&:hover': {
-                    background: 'linear-gradient(45deg, #1d4ed8 30%, #6d28d9 90%)',
-                  },
-                  '&:disabled': {
-                    background: '#e5e7eb',
-                    color: '#9ca3af'
-                  }
+                  textTransform: 'none'
                 }}
               >
                 {loading ? 'Analyzing...' : 'Analyze Match'}
@@ -581,7 +699,7 @@ export const CandidatePage: React.FC = () => {
                   >
                     <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
                       <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                        Fit Score
+                        Result
                       </Typography>
                       <Chip
                         label={getScoreLabel(score)}
@@ -650,12 +768,12 @@ export const CandidatePage: React.FC = () => {
                             View detailed analysis
                           </Button>
                           <Button 
-                            variant="contained" 
+                            variant="outlined" 
                             onClick={handleGenerateEnhancedCV}
                             disabled={enhancedCvLoading}
                             startIcon={enhancedCvLoading ? <CircularProgress size={16} /> : <AutoFixHigh />}
                           >
-                            {enhancedCvLoading ? 'Generating...' : 'Generate Enhanced CV'}
+                            {enhancedCvLoading ? 'Enhancing...' : 'Enhance CV'}
                           </Button>
                         </Box>
                       )}
