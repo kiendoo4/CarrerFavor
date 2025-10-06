@@ -190,20 +190,13 @@ export const LLMSettingsDialog: React.FC<LLMSettingsDialogProps> = ({ open, onCl
       <DialogTitle>
         <Stack direction="row" alignItems="center" spacing={1}>
           <Psychology color="primary" />
-          <Typography variant="h6">AI Model Configuration</Typography>
+          <Typography variant="h6">Model Configuration</Typography>
         </Stack>
       </DialogTitle>
       <DialogContent>
         <Stack spacing={3} sx={{ mt: 1 }}>
           {/* LLM Settings */}
           <Accordion defaultExpanded>
-            <AccordionSummary expandIcon={<ExpandMore />}>
-              <Stack direction="row" alignItems="center" spacing={1}>
-                <Psychology color="secondary" />
-                <Typography variant="h6">AI Model Configuration</Typography>
-                <Chip label="For CV Matching" size="small" color="secondary" variant="outlined" />
-              </Stack>
-            </AccordionSummary>
             <AccordionDetails>
               <Stack spacing={2}>
                 <TextField 

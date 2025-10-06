@@ -36,7 +36,11 @@ const LoginPage: React.FC = () => {
   // Redirect if user is already logged in
   useEffect(() => {
     if (user) {
-      navigate('/');
+      if (user.role === 'hr') {
+        navigate('/hr');
+      } else {
+        navigate('/');
+      }
     }
   }, [user, navigate]);
 

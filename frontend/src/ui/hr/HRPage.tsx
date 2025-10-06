@@ -33,8 +33,8 @@ import {
   CloudUpload, 
   Settings, 
   Assessment, 
-  Work,
-  TrendingUp,
+  Person,
+  Business,
   Folder,
   ExpandMore,
   Add as AddIcon,
@@ -143,537 +143,97 @@ export const HRPage: React.FC = () => {
   }
 
   return (
-    <>
-      <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
-        {/* Dashboard Stats */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ 
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              color: 'white',
-              position: 'relative',
-              overflow: 'hidden'
-            }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Box>
-                    <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
-                      {collections.length}
-                    </Typography>
-                    <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                      Collections
-                    </Typography>
-                  </Box>
-                  <FolderOpenIcon sx={{ fontSize: 40, opacity: 0.3 }} />
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ 
-              background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-              color: 'white',
-              position: 'relative',
-              overflow: 'hidden'
-            }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Box>
-                    <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
-                      {cvs.length}
-                    </Typography>
-                    <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                      Total CVs
-                    </Typography>
-                  </Box>
-                  <DescriptionIcon sx={{ fontSize: 40, opacity: 0.3 }} />
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ 
-              background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-              color: 'white',
-              position: 'relative',
-              overflow: 'hidden'
-            }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Box>
-                    <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
-                      {collections.filter(c => c.cv_count > 0).length}
-                    </Typography>
-                    <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                      Active Collections
-                    </Typography>
-                  </Box>
-                  <AnalyticsIcon sx={{ fontSize: 40, opacity: 0.3 }} />
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ 
-              background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-              color: 'white',
-              position: 'relative',
-              overflow: 'hidden'
-            }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Box>
-                    <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
-                      {results?.length || 0}
-                    </Typography>
-                    <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                      Recent Matches
-                    </Typography>
-                  </Box>
-                  <TrendingUp sx={{ fontSize: 40, opacity: 0.3 }} />
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
+    <Box sx={{ maxWidth: 1200, mx: 'auto', p: { xs: 2, md: 4 } }}>
+      {/* Hero (text only) */}
+      <Box sx={{ px: { xs: 1, md: 1 }, py: { xs: 2, md: 3 }, mb: 1 }}>
+        <Typography
+          variant="h1"
+          sx={{
+            fontWeight: 800,
+            mb: 1,
+            background: 'linear-gradient(45deg, #2563eb 30%, #7c3aed 90%)',
+            backgroundClip: 'text',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent'
+          }}
+        >
+          Welcome to CareerFavor
+        </Typography>
+        <Typography variant="h4" color="text.secondary">
+          Your AI copilot for candidate screening and CV–JD matching
+        </Typography>
+      </Box>
 
-        {/* Quick Actions */}
-        <Box sx={{ mb: 4 }}>
-          <Card sx={{ 
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            color: 'white',
-            position: 'relative',
-            overflow: 'hidden'
-          }}>
+      {/* Feature Cards */}
+      <Grid container spacing={3} sx={{ mt: 3 }}>
+        <Grid item xs={12} md={6}>
+          <Card sx={{ borderRadius: 3, height: '100%' }}>
             <CardContent>
-              <Stack direction="row" alignItems="center" justifyContent="space-between">
-                <Box>
-                  <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
-                    Quick Actions
-                  </Typography>
-                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                    Manage your CV collections and run matching
-                  </Typography>
-                </Box>
-                <Button
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  sx={{
-                    bgcolor: 'rgba(255,255,255,0.2)',
-                    color: 'white',
-                    '&:hover': {
-                      bgcolor: 'rgba(255,255,255,0.3)',
-                    },
-                    backdropFilter: 'blur(10px)',
-                    border: '1px solid rgba(255,255,255,0.2)',
-                    borderRadius: 2,
-                    px: 3,
-                    py: 1.5
-                  }}
-                >
-                  Create New Collection
-                </Button>
+              <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1 }}>
+                <Person color="primary" />
+                <Typography variant="h6" sx={{ fontWeight: 700 }}>Candidate</Typography>
+              </Stack>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                For "Candidate" accounts. Evaluate how well a single CV fits a given Job Description (JD). View Fit Score, ATS Score, and a detailed analysis.
+              </Typography>
+              <Stack direction="row" spacing={1}>
+                <Button variant="outlined" onClick={() => navigate('/candidate')}>Open</Button>
               </Stack>
             </CardContent>
           </Card>
-        </Box>
-
-        <Box sx={{ mb: 4 }}>
-          <Stack direction="row" alignItems="center" justifyContent="space-between">
-            <Box>
-              <Typography 
-                variant="h4" 
-                sx={{ 
-                  fontWeight: 700, 
-                  mb: 1,
-                  background: 'linear-gradient(45deg, #2563eb 30%, #7c3aed 90%)',
-                  backgroundClip: 'text',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                }}
-              >
-                CV-Job Matching
-              </Typography>
-              <Typography variant="body1" color="text.secondary">
-                Compare job descriptions against your CV database
-              </Typography>
-            </Box>
-            <Button
-              variant="outlined"
-              startIcon={<Settings />}
-              onClick={() => setSettingsOpen(true)}
-              sx={{ height: 'fit-content' }}
-            >
-              Model Settings
-            </Button>
-          </Stack>
-        </Box>
-
-        <Snackbar
-          open={!!error}
-          autoHideDuration={5000}
-          onClose={() => setError(null)}
-          anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-        >
-          <Alert onClose={() => setError(null)} severity="error" sx={{ width: '100%' }}>
-            {error}
-          </Alert>
-        </Snackbar>
-
-        <Grid container spacing={3}>
-          {/* CV Summary */}
-          <Grid item xs={12} md={4}>
-            <Card>
-              <CardContent>
-                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
-                  <Folder color="primary" />
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    CV Database
-                  </Typography>
-                </Stack>
-
-                <Box sx={{ textAlign: 'center', py: 3 }}>
-                  <Typography variant="h2" sx={{ fontWeight: 700, color: 'primary.main', mb: 1 }}>
-                    {cvs.length}
-                  </Typography>
-                  <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                    CVs available for matching
-                  </Typography>
-                  
-                  <Button
-                    variant="contained"
-                    startIcon={<Folder />}
-                    onClick={() => navigate('/cv-management')}
-                    sx={{
-                      background: 'linear-gradient(45deg, #2563eb 30%, #7c3aed 90%)',
-                      '&:hover': {
-                        background: 'linear-gradient(45deg, #1d4ed8 30%, #6d28d9 90%)',
-                      }
-                    }}
-                  >
-                    Manage CVs
-                  </Button>
-                </Box>
-
-                {cvs.length === 0 && (
-                  <Alert severity="info" sx={{ mt: 2 }}>
-                    No CVs found. Upload CVs in the CV Management section first.
-                  </Alert>
-                )}
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Job Description and Matching */}
-          <Grid item xs={12} md={8}>
-            <Stack spacing={3}>
-              {/* Job Description Card */}
-              <Card>
-                <CardContent>
-                  <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 3 }}>
-                    <Work color="secondary" />
-                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                      Job Description
-                    </Typography>
-                  </Stack>
-
-                  <Tabs value={jdTab} onChange={(_, v) => setJdTab(v)} sx={{ mb: 2 }}>
-                    <Tab label="Paste Text" />
-                    <Tab label="Upload File" />
-                  </Tabs>
-
-                  {jdTab === 1 && (
-                    <Box sx={{ mb: 2 }}>
-                      <Button
-                        component="label"
-                        variant="outlined"
-                        startIcon={<CloudUpload />}
-                        fullWidth
-                        sx={{ 
-                          py: 1.5,
-                          borderStyle: 'dashed',
-                          '&:hover': {
-                            borderStyle: 'dashed'
-                          }
-                        }}
-                      >
-                        Upload Job Description File
-                        <input 
-                          hidden 
-                          type="file" 
-                          accept=".txt,.pdf,.doc,.docx,.rtf" 
-                          onChange={e => e.target.files?.[0] && onUploadJdFile(e.target.files[0])} 
-                        />
-                      </Button>
-                    </Box>
-                  )}
-
-                  <TextField
-                    label={jdTab === 1 ? "Extracted JD Text" : "Paste job description here"}
-                    value={jdText}
-                    onChange={e => setJdText(e.target.value)}
-                    multiline
-                    rows={8}
-                    fullWidth
-                    placeholder="Enter the job description to match against CVs..."
-                  />
-
-                  <Button
-                    variant="contained"
-                    onClick={compute}
-                    disabled={cvs.length === 0 || !jdText.trim() || loading}
-                    startIcon={<TrendingUp />}
-                    sx={{
-                      mt: 2,
-                      py: 1.5,
-                      px: 4,
-                      fontSize: '1rem',
-                      fontWeight: 600,
-                      background: 'linear-gradient(45deg, #2563eb 30%, #7c3aed 90%)',
-                      '&:hover': {
-                        background: 'linear-gradient(45deg, #1d4ed8 30%, #6d28d9 90%)',
-                      },
-                      '&:disabled': {
-                        background: '#e5e7eb',
-                        color: '#9ca3af'
-                      }
-                    }}
-                  >
-                    {loading ? 'Analyzing CVs...' : 'Find Best Matches'}
-                  </Button>
-
-                  {loading && (
-                    <Box sx={{ mt: 2 }}>
-                      <LinearProgress 
-                        sx={{ 
-                          height: 8, 
-                          borderRadius: 4,
-                          '& .MuiLinearProgress-bar': {
-                            background: 'linear-gradient(45deg, #2563eb 30%, #7c3aed 90%)',
-                          }
-                        }} 
-                      />
-                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1, textAlign: 'center' }}>
-                        Processing {cvs.length} CVs against job description...
-                      </Typography>
-                    </Box>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Results Card */}
-              {results && !loading && (
-                <Card>
-                  <CardContent>
-                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 3 }}>
-                      <Assessment color="primary" />
-                      <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                        Match Results
-                      </Typography>
-                      <Chip 
-                        label={`${results.length} candidates ranked`} 
-                        size="small" 
-                        color="primary" 
-                        variant="outlined" 
-                      />
-                    </Stack>
-
-                    <Paper variant="outlined">
-                      <Table>
-                        <TableHead>
-                          <TableRow>
-                            <TableCell sx={{ fontWeight: 600 }}>Rank</TableCell>
-                            <TableCell sx={{ fontWeight: 600 }}>Candidate CV</TableCell>
-                            <TableCell align="right" sx={{ fontWeight: 600 }}>Match Score</TableCell>
-                            <TableCell align="right" sx={{ fontWeight: 600 }}>Rating</TableCell>
-                            <TableCell align="center" sx={{ fontWeight: 600 }}>Details</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {results
-                            .sort((a, b) => b.score - a.score)
-                            .map((result, index) => (
-                            <TableRow key={result.cv_id} hover>
-                              <TableCell>
-                                <Chip
-                                  label={`#${index + 1}`}
-                                  size="small"
-                                  color={index < 3 ? 'primary' : 'default'}
-                                  sx={{ fontWeight: 600 }}
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                                  {result.filename}
-                                </Typography>
-                              </TableCell>
-                              <TableCell align="right">
-                                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                  {(result.score * 100).toFixed(1)}%
-                                </Typography>
-                              </TableCell>
-                              <TableCell align="right">
-                                <Chip
-                                  label={
-                                    result.score >= 0.8 ? 'Excellent' :
-                                    result.score >= 0.6 ? 'Good' :
-                                    result.score >= 0.4 ? 'Fair' : 'Poor'
-                                  }
-                                  color={getScoreColor(result.score) as any}
-                                  size="small"
-                                  sx={{ fontWeight: 600 }}
-                                />
-                              </TableCell>
-                              <TableCell align="center">
-                                <Button
-                                  size="small"
-                                  variant="outlined"
-                                  onClick={() => {
-                                    // Show detailed results in a dialog
-                                    setSelectedResult(result);
-                                    setShowDetailsDialog(true);
-                                  }}
-                                >
-                                  View Details
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </Paper>
-
-                    <Box sx={{ mt: 2, p: 2, bgcolor: 'background.default', borderRadius: 2 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        💡 <strong>Tip:</strong> Scores above 70% indicate strong matches. 
-                        Consider interviewing candidates with scores above 60% for best results.
-                      </Typography>
-                    </Box>
-                  </CardContent>
-                </Card>
-              )}
-            </Stack>
-          </Grid>
         </Grid>
-      </Box>
-      
-      <LLMSettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-      
-      {/* Detailed Results Dialog */}
-      <Dialog 
-        open={showDetailsDialog} 
-        onClose={() => setShowDetailsDialog(false)} 
-        maxWidth="lg" 
-        fullWidth
-      >
-        <DialogTitle>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Detailed Match Analysis - {selectedResult?.filename}
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          {selectedResult && (
-            <Stack spacing={3}>
-              {/* Overall Score */}
-              <Box sx={{ p: 2, bgcolor: 'primary.light', borderRadius: 2, textAlign: 'center' }}>
-                <Typography variant="h4" sx={{ fontWeight: 700, color: 'primary.contrastText' }}>
-                  {(selectedResult.score * 100).toFixed(1)}%
-                </Typography>
-                <Typography variant="body1" color="primary.contrastText">
-                  Overall Match Score
-                </Typography>
-              </Box>
 
-              {/* Detailed Scores */}
-              {selectedResult.detailed_scores && (
-                <Accordion>
-                  <AccordionSummary expandIcon={<ExpandMore />}>
-                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                      Detailed Scoring Breakdown
-                    </Typography>
-                  </AccordionSummary>
-                  <AccordionDetails>
-                    <Grid container spacing={2}>
-                      {Object.entries(selectedResult.detailed_scores).map(([key, value]) => (
-                        <Grid item xs={6} sm={4} key={key}>
-                          <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                            <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase' }}>
-                              {key.replace(/_/g, ' ')}
-                            </Typography>
-                            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                              {(value * 100).toFixed(1)}%
-                            </Typography>
-                          </Box>
-                        </Grid>
-                      ))}
-                    </Grid>
-                  </AccordionDetails>
-                </Accordion>
-              )}
+        <Grid item xs={12} md={6}>
+          <Card sx={{ borderRadius: 3, height: '100%' }}>
+            <CardContent>
+              <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1 }}>
+                <Business color="success" />
+                <Typography variant="h6" sx={{ fontWeight: 700 }}>Matching</Typography>
+              </Stack>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                For HR users. Run matching across multiple CVs against one JD, review ranked results, and open detailed analyses per candidate.
+              </Typography>
+              <Stack direction="row" spacing={1}>
+                <Button variant="outlined" onClick={() => navigate('/matching')}>Open</Button>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
 
-              {/* Anonymized CV Text */}
-              {selectedResult.anonymized_cv_text && (
-                <Accordion>
-                  <AccordionSummary expandIcon={<ExpandMore />}>
-                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                      CV Content
-                    </Typography>
-                  </AccordionSummary>
-                  <AccordionDetails>
-                    <Paper sx={{ p: 2, bgcolor: 'grey.50', maxHeight: 300, overflow: 'auto' }}>
-                      <Typography 
-                        component="pre" 
-                        sx={{ 
-                          whiteSpace: 'pre-wrap', 
-                          fontFamily: 'monospace',
-                          fontSize: '0.875rem',
-                          lineHeight: 1.5
-                        }}
-                      >
-                        {selectedResult.anonymized_cv_text}
-                      </Typography>
-                    </Paper>
-                  </AccordionDetails>
-                </Accordion>
-              )}
+        <Grid item xs={12} md={6}>
+          <Card sx={{ borderRadius: 3, height: '100%' }}>
+            <CardContent>
+              <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1 }}>
+                <Folder color="secondary" />
+                <Typography variant="h6" sx={{ fontWeight: 700 }}>CV Management</Typography>
+              </Stack>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Manage CV collections: upload, view, and organize CVs to use in matching workflows.
+              </Typography>
+              <Stack direction="row" spacing={1}>
+                <Button variant="outlined" onClick={() => navigate('/cv-management')}>Open</Button>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
 
-              {/* Anonymized JD Text */}
-              {selectedResult.anonymized_jd_text && (
-                <Accordion>
-                  <AccordionSummary expandIcon={<ExpandMore />}>
-                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                      Job Description
-                    </Typography>
-                  </AccordionSummary>
-                  <AccordionDetails>
-                    <Paper sx={{ p: 2, bgcolor: 'grey.50', maxHeight: 300, overflow: 'auto' }}>
-                      <Typography 
-                        component="pre" 
-                        sx={{ 
-                          whiteSpace: 'pre-wrap', 
-                          fontFamily: 'monospace',
-                          fontSize: '0.875rem',
-                          lineHeight: 1.5
-                        }}
-                      >
-                        {selectedResult.anonymized_jd_text}
-                      </Typography>
-                    </Paper>
-                  </AccordionDetails>
-                </Accordion>
-              )}
-            </Stack>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowDetailsDialog(false)}>
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </>
+        <Grid item xs={12} md={6}>
+          <Card sx={{ borderRadius: 3, height: '100%' }}>
+            <CardContent>
+              <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1 }}>
+                <Assessment color="info" />
+                <Typography variant="h6" sx={{ fontWeight: 700 }}>Evaluation</Typography>
+              </Stack>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                For research purposes. Batch evaluate labeled datasets (CV/JD/label) to measure and compare model performance.
+              </Typography>
+              <Stack direction="row" spacing={1}>
+                <Button variant="outlined" onClick={() => navigate('/evaluation')}>Open</Button>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+    </Box>
   )
 }

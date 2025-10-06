@@ -36,12 +36,13 @@ import { LLMSettingsDialog } from '../hr/LLMSettingsDialog';
 const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 interface LLMConfig {
-  llm_provider: 'openai' | 'gemini';
+  llm_provider: 'openai' | 'gemini' | 'ollama';
   llm_api_key: string;
   llm_model_name: string;
   llm_temperature: number;
   llm_top_p: number;
   llm_max_tokens: number;
+  ollama_base_url?: string;
 }
 
 export const UserSettingsPage: React.FC = () => {
@@ -358,9 +359,6 @@ export const UserSettingsPage: React.FC = () => {
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       Model: {llmConfig.llm_model_name}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Temperature: {llmConfig.llm_temperature}
                     </Typography>
                     {llmConfig.llm_provider !== 'gemini' && (
                       <Typography variant="body2" color="text.secondary">
