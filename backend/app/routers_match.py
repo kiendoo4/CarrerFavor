@@ -94,6 +94,8 @@ async def enhance_cv(
     llm_config = db.query(LLMConfig).filter(LLMConfig.user_id == user.id).first()
     
     try:
+        print(f"DEBUG: LLM Config - Provider: {llm_config.llm_provider if llm_config else None}, Model: {llm_config.llm_model_name if llm_config else None}")
+        
         result = await generate_enhanced_cv_pdf_and_analysis(
             payload.cv_text,
             payload.jd_text,
@@ -111,6 +113,9 @@ async def enhance_cv(
             'analysis': result.get('analysis', {})
         })
     except Exception as e:
+        print(f"DEBUG: Error in enhance_cv: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to generate enhanced CV: {str(e)}")
 
 

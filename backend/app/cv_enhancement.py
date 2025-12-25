@@ -186,9 +186,16 @@ def compile_latex_to_pdf(tex_content: str) -> bytes:
         tex_file = os.path.join(temp_dir, "cv.tex")
         pdf_file = os.path.join(temp_dir, "cv.pdf")
         
+        # Sanitize LaTeX content to fix common issues
+        sanitized_tex = tex_content
+        # Fix unescaped ampersands in text (but not in table environments)
+        import re
+        # Replace & with \& when it's not in table context (simple heuristic)
+        sanitized_tex = re.sub(r'(?<!\\)&(?![^{]*})', r'\\&', sanitized_tex)
+        
         # Write LaTeX content to file
         with open(tex_file, 'w', encoding='utf-8') as f:
-            f.write(tex_content)
+            f.write(sanitized_tex)
         
         try:
             # Run LaTeX compilation using docker
@@ -202,11 +209,23 @@ def compile_latex_to_pdf(tex_content: str) -> bytes:
             
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
             
-            if result.returncode != 0:
+            # Check if PDF was generated despite errors (LaTeX can have warnings but still produce PDF)
+            pdf_exists = os.path.exists(pdf_file)
+            
+            if result.returncode != 0 and not pdf_exists:
+                print(f"DEBUG: LaTeX compilation failed!")
+                print(f"DEBUG: Return code: {result.returncode}")
+                print(f"DEBUG: STDOUT: {result.stdout}")
+                print(f"DEBUG: STDERR: {result.stderr}")
+                print(f"DEBUG: LaTeX content (first 500 chars): {tex_content[:500]}...")
                 raise HTTPException(
                     status_code=500, 
-                    detail=f"LaTeX compilation failed: {result.stderr}"
+                    detail=f"LaTeX compilation failed. Return code: {result.returncode}. STDERR: {result.stderr[:500]}. STDOUT: {result.stdout[:200]}"
                 )
+            elif result.returncode != 0 and pdf_exists:
+                print(f"DEBUG: LaTeX had warnings/errors but PDF was generated successfully")
+                print(f"DEBUG: Return code: {result.returncode} (non-fatal)")
+                # Continue to read the PDF despite warnings
             
             # Read the generated PDF
             with open(pdf_file, 'rb') as f:

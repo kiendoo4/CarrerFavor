@@ -51,10 +51,12 @@ services:
 
   latex:
     image: texlive/texlive:latest-full
-    container_name: ragflow-latex
+    container_name: latex
     volumes:
-      - ../latex:/latex
+      - ./latex:/latex
     working_dir: /latex
+    command: ["tail", "-f", "/dev/null"]
+    restart: unless-stopped
 
 volumes:
   postgres_data:
